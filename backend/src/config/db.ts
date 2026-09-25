@@ -18,6 +18,19 @@ try {
 let memoryServer: MongoMemoryServer | null = null;
 
 export async function connectDb(forceMemory = false): Promise<void> {
+  // Production must use the configured persistent database. Keep the memory
+  // server path exclusively for local development and isolated tests.
+  if (process.env.NODE_ENV === 'production') {
+    const uri = env.MONGODB_URI.trim();
+    if (!uri) {
+      throw new Error('MONGODB_URI is required in production.');
+    }
+
+    await mongoose.connect(uri, { autoIndex: false });
+    console.log(`Connected to MongoDB at ${uri.replace(/\/\/.*@/, '//<credentials>@')}`);
+    return;
+  }
+
   const shouldUseMemory = forceMemory || process.env.USE_MEMORY_DB === 'true';
   const uri = !shouldUseMemory ? env.MONGODB_URI : '';
 

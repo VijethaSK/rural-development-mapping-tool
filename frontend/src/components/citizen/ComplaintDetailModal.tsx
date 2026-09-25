@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { ComplaintItem } from '../../types/citizen';
 import { ComplaintLifecycleTimeline } from './ComplaintLifecycleTimeline';
 import { useAuth } from '../../store/auth';
+import { apiFetch, apiUrl } from '../../api/client';
 
 interface Props {
   complaint: ComplaintItem | null;
@@ -51,7 +52,7 @@ export function ComplaintDetailModal({
         try {
           const headers: any = {};
           if (token) headers['Authorization'] = `Bearer ${token}`;
-          const res = await fetch(`/complaints/${complaint._id}`, { headers });
+          const res = await apiFetch(`/complaints/${complaint._id}`, { headers });
           if (res.ok) {
             const data = await res.json();
             if (data.complaint) {
@@ -93,7 +94,7 @@ export function ComplaintDetailModal({
       if (onVoteToggle) {
         await onVoteToggle(currentComp._id);
       } else {
-        const res = await fetch(`/complaints/${currentComp._id}/vote`, {
+      const res = await apiFetch(`/complaints/${currentComp._id}/vote`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -122,7 +123,7 @@ export function ComplaintDetailModal({
     setSubmittingComment(true);
     setError(null);
     try {
-      const res = await fetch(`/complaints/${currentComp._id}/comments`, {
+      const res = await apiFetch(`/complaints/${currentComp._id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +217,7 @@ export function ComplaintDetailModal({
                 {currentComp.images.map((img, i) => (
                   <div key={i} className="rounded-xl overflow-hidden border border-slate-200 shadow-sm group">
                     <img
-                      src={img.url}
+                      src={apiUrl(img.url)}
                       alt={img.caption || 'Grievance proof'}
                       className="w-full h-36 object-cover group-hover:scale-105 transition-transform"
                       onError={(e) => {

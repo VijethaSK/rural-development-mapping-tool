@@ -6,6 +6,7 @@ import { ComplaintDetailModal } from '../../components/citizen/ComplaintDetailMo
 import { SubmitComplaintModal } from '../../components/citizen/SubmitComplaintModal';
 import { useAuth } from '../../store/auth';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch, apiUrl } from '../../api/client';
 
 const complaintMarkerIcon = (priority: string) => {
   const color =
@@ -78,7 +79,7 @@ export default function CitizenPortalPage() {
       const headers: any = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`/complaints?${params.toString()}`, { headers });
+      const res = await apiFetch(`/complaints?${params.toString()}`, { headers });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
 
       const data = await res.json();
@@ -93,7 +94,7 @@ export default function CitizenPortalPage() {
 
   const fetchInfrastructure = async () => {
     try {
-      const res = await fetch('/priorities/candidates');
+      const res = await apiFetch('/priorities/candidates');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setInfrastructures(data);
@@ -115,7 +116,7 @@ export default function CitizenPortalPage() {
     }
 
     try {
-      const res = await fetch(`/complaints/${id}/vote`, {
+      const res = await apiFetch(`/complaints/${id}/vote`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -508,7 +509,7 @@ export default function CitizenPortalPage() {
                     {c.images && c.images.length > 0 && (
                       <div className="pt-1 flex items-center gap-2">
                         <img
-                          src={c.images[0].url}
+                          src={apiUrl(c.images[0].url)}
                           alt="Proof"
                           className="w-12 h-12 object-cover rounded-lg border border-slate-200"
                           onError={(e) => {

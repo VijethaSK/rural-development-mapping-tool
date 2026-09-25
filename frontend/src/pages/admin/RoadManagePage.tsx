@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../store/auth';
+import { apiFetch } from '../../api/client';
 
 type Road = { _id: string; name: string; ward: string; condition: string };
 
@@ -9,21 +10,20 @@ export default function RoadManagePage() {
   const [name, setName] = useState('');
   const [ward, setWard] = useState('');
   const [condition, setCondition] = useState('Good');
-  const BASE = (import.meta.env as any).VITE_BACKEND_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : '');
 
-  useEffect(() => { fetch(BASE + '/admin/roads', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setItems); }, [token]);
+  useEffect(() => { apiFetch('/admin/roads', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setItems); }, [token]);
 
   async function add() {
-    const pList = await fetch(BASE + '/panchayats').then(r => r.json());
+    const pList = await apiFetch('/panchayats').then(r => r.json());
     const p = pList[0];
-    const created = await fetch(BASE + '/admin/roads', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ panchayatId: p._id, name, roadType: 'Village', surfaceType: 'Paved', lengthKm: 1, ward, connects: [], condition, geometry: { type: 'LineString', coordinates: [[77.5946, 12.9716], [77.5956, 12.9726]] } }) });
+    const created = await apiFetch('/admin/roads', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ panchayatId: p._id, name, roadType: 'Village', surfaceType: 'Paved', lengthKm: 1, ward, connects: [], condition, geometry: { type: 'LineString', coordinates: [[77.5946, 12.9716], [77.5956, 12.9726]] } }) });
     const j = await created.json();
     setItems(prev => [j, ...prev]);
     setName(''); setWard('');
   }
 
   async function del(id: string) {
-    await fetch(BASE + `/admin/roads/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/admin/roads/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setItems(prev => prev.filter(i => i._id !== id));
   }
 

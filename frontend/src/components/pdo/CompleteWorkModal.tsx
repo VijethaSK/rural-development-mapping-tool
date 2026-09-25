@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PdoAssignmentItem, CompletionImage } from '../../types/pdoWork';
+import { apiFetch, apiUrl } from '../../api/client';
 
 interface Props {
   assignment: PdoAssignmentItem;
@@ -61,7 +62,7 @@ export function CompleteWorkModal({ assignment, isOpen, onClose, onSubmit }: Pro
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/upload', {
+      const res = await apiFetch('/upload', {
         method: 'POST',
         body: formData
       });
@@ -209,7 +210,7 @@ export function CompleteWorkModal({ assignment, isOpen, onClose, onSubmit }: Pro
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {images.map((img, idx) => (
                   <div key={idx} className="relative rounded-lg overflow-hidden border border-slate-200">
-                    <img src={img.url} alt={img.caption} className="w-full h-20 object-cover" />
+                    <img src={apiUrl(img.url)} alt={img.caption} className="w-full h-20 object-cover" />
                     <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] p-1 truncate block">
                       {img.caption}
                     </span>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../store/auth';
+import { apiFetch } from '../../api/client';
 
 type School = { _id: string; name: string; ward: string; type: string; management: string };
 
@@ -10,21 +11,20 @@ export default function SchoolManagePage() {
   const [ward, setWard] = useState('');
   const [type, setType] = useState('Primary');
   const [management, setManagement] = useState('Govt');
-  const BASE = (import.meta.env as any).VITE_BACKEND_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : '');
 
-  useEffect(() => { fetch(BASE + '/admin/schools', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setItems); }, [token]);
+  useEffect(() => { apiFetch('/admin/schools', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setItems); }, [token]);
 
   async function add() {
-    const pList = await fetch(BASE + '/panchayats').then(r => r.json());
+    const pList = await apiFetch('/panchayats').then(r => r.json());
     const p = pList[0];
-    const created = await fetch(BASE + '/admin/schools', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ panchayatId: p._id, name, type, management, medium: 'English', classesFrom: 1, classesTo: 5, studentCount: 0, staffCount: 0, ward, village: ward, location: { lat: 12.9716, lng: 77.5946 }, facilities: { toilets: 'Functional', drinkingWater: true, playground: true, boundaryWall: false } }) });
+    const created = await apiFetch('/admin/schools', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ panchayatId: p._id, name, type, management, medium: 'English', classesFrom: 1, classesTo: 5, studentCount: 0, staffCount: 0, ward, village: ward, location: { lat: 12.9716, lng: 77.5946 }, facilities: { toilets: 'Functional', drinkingWater: true, playground: true, boundaryWall: false } }) });
     const j = await created.json();
     setItems(prev => [j, ...prev]);
     setName(''); setWard('');
   }
 
   async function del(id: string) {
-    await fetch(BASE + `/admin/schools/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/admin/schools/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setItems(prev => prev.filter(i => i._id !== id));
   }
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
+import { apiFetch } from '../../api/client';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -34,7 +35,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/auth/login', {
+      const res = await apiFetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: u, password: p })
@@ -75,7 +76,7 @@ export default function LoginPage() {
     setSuccessMsg('');
 
     try {
-      const res = await fetch('/auth/register', {
+      const res = await apiFetch('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

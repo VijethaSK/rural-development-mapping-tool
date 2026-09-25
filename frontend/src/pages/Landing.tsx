@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { apiFetch } from '../api/client';
 
 type Panchayat = { _id: string; name: string; district?: string; state?: string; wards?: string[]; dataOrigin?: string };
 
@@ -7,12 +8,11 @@ export default function Landing() {
   const [panchayats, setPanchayats] = useState<Panchayat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const BASE = (import.meta.env as any).VITE_BACKEND_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : '');
   useEffect(() => {
     let alive = true;
     setError('');
     setLoading(true);
-    fetch(BASE + '/panchayats').then(async r => {
+    apiFetch('/panchayats').then(async r => {
       if (!r.ok) throw new Error('Failed to load');
       return r.json();
     }).then((list) => { if (alive) setPanchayats(list); }).catch(() => {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '../api/client';
 
 type Panchayat = { _id: string; name: string; dataOrigin?: string };
 type Road = {
@@ -25,11 +26,10 @@ export default function RoadsPage() {
   const [condition, setCondition] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const BASE = (import.meta.env as any).VITE_BACKEND_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : '');
 
   useEffect(() => {
     const ac = new AbortController();
-    fetch(BASE + '/panchayats', { signal: ac.signal }).then(async (r) => {
+    apiFetch('/panchayats', { signal: ac.signal }).then(async (r) => {
       if (!r.ok) throw new Error('Panchayat request failed');
       return r.json() as Promise<Panchayat[]>;
     }).then((list) => {
@@ -47,7 +47,7 @@ export default function RoadsPage() {
     setError('');
     setRoads([]);
     setWard('');
-    fetch(BASE + `/panchayats/${panchayatId}/roads`, { signal: ac.signal }).then(async (r) => {
+    apiFetch(`/panchayats/${panchayatId}/roads`, { signal: ac.signal }).then(async (r) => {
       if (!r.ok) throw new Error('Road request failed');
       return r.json();
     }).then(setRoads).catch((err) => { if (err?.name !== 'AbortError') setError('Failed to load roads'); }).finally(() => { if (!ac.signal.aborted) setLoading(false); });

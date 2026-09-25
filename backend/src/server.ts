@@ -8,6 +8,11 @@ async function start() {
     await connectDb();
     await runSeed();
   } catch (err) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Backend startup aborted because database initialization failed.', err);
+      process.exitCode = 1;
+      return;
+    }
     console.error('Database unavailable, starting in fallback mode.');
   }
   app.listen(env.PORT, () => {

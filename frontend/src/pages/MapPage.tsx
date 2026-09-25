@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { RankedInfrastructure, PriorityLevel } from '../types/priority';
 import { HeatmapPoint, ComplaintCluster, ComplaintDetail } from '../types/complaint';
 import { UnderservedArea } from '../types/gap';
-import { api } from '../api/client';
+import { api, apiFetch } from '../api/client';
 import HeatmapOverlay from '../components/HeatmapOverlay';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
 import ClusterInspectionModal from '../components/ClusterInspectionModal';
@@ -267,7 +267,7 @@ export default function MapPage() {
 
   const fetchPanchayats = async () => {
     try {
-      const res = await fetch('/panchayats');
+      const res = await apiFetch('/panchayats');
       if (res.ok) {
         const list: Panchayat[] = await res.json();
         setPanchayats(list);
@@ -311,7 +311,7 @@ export default function MapPage() {
 
       // 1. Fetch Priority Ranked Infrastructure
       const pUrl = `/priorities?${pParams.toString()}`;
-      const infraPromise = fetch(pUrl)
+      const infraPromise = apiFetch(pUrl)
         .then((r) => r.json())
         .then((data) => (data.items ? data.items : Array.isArray(data) ? data : []))
         .catch(() => []);
@@ -320,25 +320,25 @@ export default function MapPage() {
       const cParams = new URLSearchParams();
       if (pId) cParams.append('panchayatId', pId);
       if (selectedWard !== 'All') cParams.append('ward', selectedWard);
-      const complaintsPromise = fetch(`/complaints?${cParams.toString()}`)
+      const complaintsPromise = apiFetch(`/complaints?${cParams.toString()}`)
         .then((r) => r.json())
         .then((data) => data.complaints || [])
         .catch(() => []);
 
       // 3. Fetch Heatmap Points
-      const heatmapPromise = fetch(`/complaints/analytics/heatmap?${pParams.toString()}`)
+      const heatmapPromise = apiFetch(`/complaints/analytics/heatmap?${pParams.toString()}`)
         .then((r) => r.json())
         .then((data) => data.points || [])
         .catch(() => []);
 
       // 4. Fetch Maintenance Routes
-      const routesPromise = fetch(`/routes?${pParams.toString()}`)
+      const routesPromise = apiFetch(`/routes?${pParams.toString()}`)
         .then((r) => r.json())
         .then((data) => (data.success && data.data ? data.data : []))
         .catch(() => []);
 
       // 5. Fetch Underserved Regions (Spatial Gap Analysis)
-      const gapsPromise = fetch('/gap-analysis/analyze', {
+      const gapsPromise = apiFetch('/gap-analysis/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

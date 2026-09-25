@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ComplaintStatus, StatusHistoryItem, AvailableTransition } from '../../types/citizen';
 import { useAuth } from '../../store/auth';
+import { apiFetch } from '../../api/client';
 
 interface Props {
   complaintId: string;
@@ -108,7 +109,7 @@ export function ComplaintLifecycleTimeline({
     setError(null);
 
     try {
-      const res = await fetch(`/complaints/${complaintId}/transition`, {
+      const res = await apiFetch(`/complaints/${complaintId}/transition`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -10,6 +10,7 @@ import {
 import { PdoTaskCard } from '../../components/pdo/PdoTaskCard';
 import { WorkDetailsModal } from '../../components/pdo/WorkDetailsModal';
 import { CompleteWorkModal } from '../../components/pdo/CompleteWorkModal';
+import { apiFetch } from '../../api/client';
 
 export default function PdoDashboardPage() {
   const { user, token, logout } = useAuth();
@@ -65,7 +66,7 @@ export default function PdoDashboardPage() {
       if (statusFilter !== 'All') params.append('status', statusFilter);
       if (priorityFilter !== 'All') params.append('priority', priorityFilter);
 
-      const res = await fetch(`/assignments/my-work?${params.toString()}`, {
+      const res = await apiFetch(`/assignments/my-work?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -157,7 +158,7 @@ export default function PdoDashboardPage() {
     }
 
     try {
-      const res = await fetch(`/assignments/${id}/action`, {
+      const res = await apiFetch(`/assignments/${id}/action`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -197,7 +198,7 @@ export default function PdoDashboardPage() {
   }) => {
     if (!selectedForComplete || !token) return;
 
-    const res = await fetch(`/assignments/${selectedForComplete._id}/action`, {
+    const res = await apiFetch(`/assignments/${selectedForComplete._id}/action`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -227,7 +228,7 @@ export default function PdoDashboardPage() {
     setSelectedForDetails(item);
     setDetailsExplanation(null);
     try {
-      const res = await fetch(`/assignments/${item._id}`, {
+    const res = await apiFetch(`/assignments/${item._id}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

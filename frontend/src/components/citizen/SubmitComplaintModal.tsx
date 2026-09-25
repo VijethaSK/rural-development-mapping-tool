@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { ComplaintCategory } from '../../types/citizen';
 import { useAuth } from '../../store/auth';
+import { apiFetch, apiUrl } from '../../api/client';
 
 interface Props {
   isOpen: boolean;
@@ -51,7 +52,7 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
   // Load infrastructure candidates
   useEffect(() => {
     if (!isOpen) return;
-    fetch('/priorities/candidates')
+    apiFetch('/priorities/candidates')
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -92,7 +93,7 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/upload', {
+      const res = await apiFetch('/upload', {
         method: 'POST',
         body: formData
       });
@@ -146,7 +147,7 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/complaints', {
+      const res = await apiFetch('/complaints', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
@@ -344,7 +345,7 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
               <div className="flex gap-2 flex-wrap pt-1">
                 {images.map((img, idx) => (
                   <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200">
-                    <img src={img.url} alt="Proof" className="w-full h-full object-cover" />
+                    <img src={apiUrl(img.url)} alt="Proof" className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}

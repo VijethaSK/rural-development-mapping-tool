@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useAuth } from '../../store/auth';
+import { apiFetch } from '../../api/client';
 
 type PanchayatOption = { _id: string; name: string; district?: string };
 type Row = Record<string, any>;
@@ -89,7 +90,7 @@ export default function ReportsPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/panchayats').then((response) => response.ok ? response.json() : []).then((items) => setPanchayats(items)).catch(() => setPanchayats([]));
+    apiFetch('/panchayats').then((response) => response.ok ? response.json() : []).then((items) => setPanchayats(items)).catch(() => setPanchayats([]));
   }, []);
 
   const generate = useCallback(async (event?: FormEvent) => {
@@ -103,7 +104,7 @@ export default function ReportsPage() {
     if (endDate) params.set('endDate', endDate);
     if (budget) params.set('budget', budget);
     try {
-      const response = await fetch(`/api/reports/analytical?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await apiFetch(`/api/reports/analytical?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Could not generate report.');
       setReport(payload.data);

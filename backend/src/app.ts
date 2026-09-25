@@ -16,7 +16,28 @@ import reportRoutes from './routes/reportRoutes.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = express();
-app.use(cors());
+const frontendUrl = process.env.FRONTEND_URL?.trim().replace(/\/+$/, '');
+const isProduction = process.env.NODE_ENV === 'production';
+
+function isLocalDevelopmentOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return ['http:', 'https:'].includes(url.protocol) &&
+      ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, false);
+
+    const isConfiguredFrontend = frontendUrl && origin === frontendUrl;
+    const isAllowedDevelopmentOrigin = !isProduction && isLocalDevelopmentOrigin(origin);
+    callback(null, Boolean(isConfiguredFrontend || isAllowedDevelopmentOrigin));
+  }
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(path.resolve('backend/uploads')));
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { apiFetch } from '../api/client';
 
 type Panchayat = { _id: string; wards: string[] };
 type School = { _id: string; name: string };
@@ -26,12 +27,12 @@ export default function ReportIssuePage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(BASE + '/panchayats').then(r => r.json()).then((list: Panchayat[]) => {
+    apiFetch('/panchayats').then(r => r.json()).then((list: Panchayat[]) => {
       const first = list[0];
       setP(first);
       if (first) {
-        fetch(BASE + `/panchayats/${first._id}/schools`).then(r => r.json()).then(setSchools);
-        fetch(BASE + `/panchayats/${first._id}/roads`).then(r => r.json()).then(setRoads);
+        apiFetch(`/panchayats/${first._id}/schools`).then(r => r.json()).then(setSchools);
+        apiFetch(`/panchayats/${first._id}/roads`).then(r => r.json()).then(setRoads);
       }
     });
   }, []);
@@ -50,7 +51,7 @@ export default function ReportIssuePage() {
     if (photoFile) {
       const fd = new FormData();
       fd.append('file', photoFile);
-      const r = await fetch(BASE + '/upload', { method: 'POST', body: fd });
+      const r = await apiFetch('/upload', { method: 'POST', body: fd });
       const j = await r.json();
       photoUrl = j.url;
     }
@@ -58,7 +59,7 @@ export default function ReportIssuePage() {
     if (location) payload.location = location;
     if (category === 'School' && schoolId) payload.schoolId = schoolId;
     if (category === 'Road' && roadId) payload.roadId = roadId;
-    await fetch(BASE + `/panchayats/${p._id}/issues`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    await apiFetch(`/panchayats/${p._id}/issues`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     setSubmitted(true);
     setError('');
   }
@@ -114,4 +115,3 @@ export default function ReportIssuePage() {
     </div>
   );
 }
-  const BASE = (import.meta.env as any).VITE_BACKEND_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : '');

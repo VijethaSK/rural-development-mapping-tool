@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '../api/client';
 
 type Panchayat = { _id: string; name: string; dataOrigin?: string };
 type School = {
@@ -26,11 +27,10 @@ export default function SchoolsPage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const BASE = (import.meta.env as any).VITE_BACKEND_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : '');
 
   useEffect(() => {
     const ac = new AbortController();
-    fetch(BASE + '/panchayats', { signal: ac.signal }).then(async (r) => {
+    apiFetch('/panchayats', { signal: ac.signal }).then(async (r) => {
       if (!r.ok) throw new Error('Panchayat request failed');
       return r.json() as Promise<Panchayat[]>;
     }).then((list) => {
@@ -48,7 +48,7 @@ export default function SchoolsPage() {
     setError('');
     setSchools([]);
     setWard('');
-    fetch(BASE + `/panchayats/${panchayatId}/schools`, { signal: ac.signal }).then(async (r) => {
+    apiFetch(`/panchayats/${panchayatId}/schools`, { signal: ac.signal }).then(async (r) => {
       if (!r.ok) throw new Error('School request failed');
       return r.json();
     }).then(setSchools).catch((err) => { if (err?.name !== 'AbortError') setError('Failed to load schools'); }).finally(() => { if (!ac.signal.aborted) setLoading(false); });

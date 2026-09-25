@@ -2,6 +2,7 @@ import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { PdoAssignmentItem } from '../../types/pdoWork';
+import { apiUrl } from '../../api/client';
 
 interface Props {
   assignment: PdoAssignmentItem | null;
@@ -145,7 +146,7 @@ export function WorkDetailsModal({ assignment, priorityExplanation, isOpen, onCl
                   <div className="grid grid-cols-3 gap-2">
                     {comp.images.map((img, idx) => (
                       <div key={idx} className="rounded-xl overflow-hidden border border-slate-200 bg-white">
-                        <img src={img.url} alt={img.caption || 'Citizen report'} className="w-full h-24 object-cover" />
+                        <img src={apiUrl(img.url)} alt={img.caption || 'Citizen report'} className="w-full h-24 object-cover" />
                         {img.caption && <span className="p-1 block text-[10px] text-slate-500 truncate">{img.caption}</span>}
                       </div>
                     ))}
@@ -231,7 +232,7 @@ export function WorkDetailsModal({ assignment, priorityExplanation, isOpen, onCl
                   <span className="font-bold text-slate-700 block mb-1">Completion Photos:</span>
                   <div className="grid grid-cols-3 gap-2">
                     {assignment.completionImages.map((img, idx) => (
-                      <img key={idx} src={img.url} alt="Proof" className="w-full h-20 object-cover rounded-lg border border-slate-200" />
+                      <img key={idx} src={apiUrl(img.url)} alt="Proof" className="w-full h-20 object-cover rounded-lg border border-slate-200" />
                     ))}
                   </div>
                 </div>

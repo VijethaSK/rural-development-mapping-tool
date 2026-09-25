@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../store/auth';
+import { apiFetch, apiUrl } from '../../api/client';
 
 type Issue = { _id: string; category: string; ward: string; description: string; status: string; photoUrl?: string; location?: { lat:number; lng:number } };
 
@@ -11,12 +12,11 @@ export default function IssuesPage() {
   const [ward, setWard] = useState('');
   const [detail, setDetail] = useState<Issue | null>(null);
   const [error, setError] = useState('');
-  const BASE = (import.meta.env as any).VITE_BACKEND_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : '');
 
   useEffect(() => {
-    fetch(BASE + '/panchayats').then(r => r.json()).then((list) => {
+    apiFetch('/panchayats').then(r => r.json()).then((list) => {
       const p = list[0];
-      if (p) fetch(BASE + `/panchayats/${p._id}/issues`).then(r => r.json()).then(setIssues);
+      if (p) apiFetch(`/panchayats/${p._id}/issues`).then(r => r.json()).then(setIssues);
     });
   }, []);
 
@@ -31,14 +31,14 @@ export default function IssuesPage() {
   };
 
   async function changeStatus(id: string, s: string) {
-    await fetch(BASE + `/issues/${id}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ status: s }) });
+    await apiFetch(`/issues/${id}/status`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ status: s }) });
     setIssues(prev => prev.map(i => i._id === id ? { ...i, status: s } : i));
     setDetail(d => d && d._id === id ? { ...d, status: s } : d);
   }
 
   async function removeIssue(id: string) {
     setError('');
-    const resp = await fetch(BASE + `/issues/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    const resp = await apiFetch(`/issues/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     if (!resp.ok) {
       setError('Failed to delete issue');
       return;
@@ -93,7 +93,7 @@ export default function IssuesPage() {
           <div className="bg-white p-4 rounded w-full max-w-lg" onClick={e => e.stopPropagation()}>
             <div className="font-semibold mb-2">Issue Detail</div>
             <div className="mb-2">{detail.description}</div>
-            {detail.photoUrl && <img src={detail.photoUrl} alt="photo" className="mb-2" />}
+            {detail.photoUrl && <img src={apiUrl(detail.photoUrl)} alt="photo" className="mb-2" />}
             <div className="flex gap-2 mb-2">
               {(nextStates[detail.status] || []).map(s => (
                 <button key={s} className="p-2 rounded border" onClick={() => changeStatus(detail._id, s)}>{label(s)}</button>

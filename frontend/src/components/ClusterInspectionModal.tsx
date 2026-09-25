@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ComplaintCluster, ComplaintDetail } from '../types/complaint';
-import { api } from '../api/client';
+import { api, apiUrl } from '../api/client';
 
 interface ClusterInspectionModalProps {
   cluster: ComplaintCluster | null;
@@ -180,7 +180,7 @@ export default function ClusterInspectionModal({
                     {item.images.map((img, i) => (
                       <img
                         key={i}
-                        src={img.url}
+                        src={apiUrl(img.url)}
                         alt="Complaint evidence"
                         className="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
                       />
