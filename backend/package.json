@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "npm run build && concurrently -k \"tsc --watch --preserveWatchOutput\" \"node --watch dist/server.js\"",
-    "build": "tsc",
+    "build": "tsc --project tsconfig.build.json",
     "start": "node dist/server.js",
     "import:source:dry-run": "node --loader ts-node/esm src/scripts/import-source-excel.mjs --dry-run",
     "import:source:apply": "node --loader ts-node/esm src/scripts/import-source-excel.mjs --apply",

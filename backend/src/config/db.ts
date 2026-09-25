@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { env } from './env.js';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import type { MongoMemoryServer } from 'mongodb-memory-server';
 
 // Keep isolated test database files in the OS temp directory by default, while
 // allowing constrained environments to choose a writable location explicitly.
@@ -46,6 +46,7 @@ export async function connectDb(forceMemory = false): Promise<void> {
 
   try {
     if (!memoryServer) {
+      const { MongoMemoryServer } = await import('mongodb-memory-server');
       memoryServer = await MongoMemoryServer.create();
     }
     const memUri = memoryServer.getUri();
