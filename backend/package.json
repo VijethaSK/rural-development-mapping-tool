@@ -1,0 +1,43 @@
+{
+  "name": "rdmt-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "npm run build && concurrently -k \"tsc --watch --preserveWatchOutput\" \"node --watch dist/server.js\"",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "import:source:dry-run": "node --loader ts-node/esm src/scripts/import-source-excel.mjs --dry-run",
+    "import:source:apply": "node --loader ts-node/esm src/scripts/import-source-excel.mjs --apply",
+    "test:source-importer": "node --test src/scripts/import-source-excel.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "seed": "ts-node-dev --transpile-only --esm src/seed/seed-run.ts",
+    "test:models": "node --loader ts-node/esm src/test-models.ts",
+    "test:authorization": "tsc && node dist/test-authorization-api.js",
+    "test:lifecycle": "tsc && node dist/test-lifecycle-canonical.js",
+    "migrate:lifecycle-statuses": "node --loader ts-node/esm src/scripts/normalize-lifecycle-statuses.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.7.0",
+    "multer": "^1.4.5-lts.1",
+    "yauzl": "^3.2.0",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^22.7.5",
+    "mongodb-memory-server": "^10.1.4",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.3"
+  }
+}

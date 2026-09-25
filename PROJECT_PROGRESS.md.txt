@@ -1,0 +1,428 @@
+# Smart Rural Infrastructure Management System
+## Project Progress / Continuation Context
+
+This is a final-year engineering project for:
+Smart Rural Infrastructure Management Using Digital Mapping Technologies
+
+The project is a web-based GIS platform for Panchayat-level infrastructure management.
+
+## Core Objective
+
+The system should go beyond simply displaying Panchayat infrastructure data.
+
+It should provide:
+
+1. Infrastructure Priority Scoring
+2. Maintenance Route Optimization
+3. Infrastructure Gap Detection
+4. Complaint Heatmap Analysis
+5. Budget-Based Recommendation
+6. GIS-based infrastructure visualization
+7. Citizen complaint management
+8. Maintenance assignment and tracking
+
+## Technology Stack
+
+Frontend:
+- React.js
+- Vite
+- Leaflet.js
+- JavaScript/TypeScript according to the existing implementation
+
+Backend:
+- Node.js
+- Express.js
+- REST APIs
+- JWT authentication if already implemented
+
+Database:
+- MongoDB
+- Mongoose
+
+GIS:
+- Leaflet.js
+- OpenStreetMap
+- GeoJSON
+- QGIS-generated data where applicable
+
+## User Roles
+
+### Citizen
+- Register/Login
+- View infrastructure map
+- Submit complaints
+- Upload complaint images
+- Add location
+- Add comments
+- Vote/support complaints
+- View complaint status
+
+### Member/PDO
+- Login
+- View assigned work
+- View infrastructure
+- View map
+- Get directions
+- View optimized maintenance routes
+- Update work status
+- Complete work
+- Upload completion images
+- Submit completion coordinates
+
+### Admin
+- Login
+- Manage infrastructure
+- Review complaints
+- Calculate/review priority
+- Assign maintenance work
+- Configure priority weights
+- View routes
+- Verify completed work
+- Manage users
+- View analytics
+- Generate reports
+- Run budget recommendations
+
+## Important Analytical Features
+
+### 1. Infrastructure Priority Scoring
+
+Each infrastructure receives a score based on multiple factors.
+
+Road factors include:
+
+- Condition
+- Number of complaints
+- Population served
+- Traffic level
+- Last repair/maintenance date
+- Distance to alternative facility where applicable
+
+The system should normalize factors before applying weights.
+
+Example configurable weights:
+
+condition: 0.30
+complaints: 0.20
+population: 0.15
+traffic: 0.15
+maintenanceAge: 0.10
+alternativeDistance: 0.10
+
+The score should be 0–100.
+
+Priority levels:
+
+0–39 = Low
+40–59 = Medium
+60–79 = High
+80–100 = Critical
+
+The UI should explain why an infrastructure received its score.
+
+### 2. Route Optimization
+
+Important:
+
+Dijkstra must NOT be presented as solving the entire multi-stop route-ordering problem.
+
+Use:
+
+- Dijkstra for shortest paths between locations
+- Greedy/nearest-neighbor strategy for initial multi-stop ordering
+- 2-opt improvement where appropriate
+
+The route should display:
+
+- Starting point
+- Maintenance stops
+- Visit order
+- Priority of each stop
+- Total distance
+- Estimated travel time
+- Route polyline
+
+### 3. Infrastructure Gap Detection
+
+Identify areas that are underserved.
+
+Example:
+
+If the configured school accessibility threshold is 5 km, identify areas whose nearest school is beyond that threshold.
+
+The threshold must be configurable.
+
+### 4. Complaint Heatmap
+
+Use actual complaint coordinates from MongoDB.
+
+Support:
+
+- Date filtering
+- Category filtering
+- Infrastructure type filtering
+- Status filtering
+- Priority filtering
+
+### 5. Budget Recommendation
+
+Given a fixed budget, recommend infrastructure maintenance projects based on:
+
+- Priority score
+- Estimated repair cost
+- Population served
+- Urgency
+- Impact/cost efficiency
+
+The total recommended cost must never exceed the available budget.
+
+Recommendations must explain why projects were selected.
+
+## Complaint Lifecycle
+
+Normal flow:
+
+Submitted
+→ Under Review
+→ Priority Set
+→ Assigned
+→ In Progress
+→ Completed
+→ Verified
+→ Closed
+
+Alternative:
+
+Under Review → Rejected
+
+Assigned → Reassigned
+
+Only authorized roles may perform each transition.
+
+## Important Architecture Principle
+
+The system should follow:
+
+Data
+↓
+GIS
+↓
+Analytics / Algorithms
+↓
+Decision Support
+↓
+Maintenance Action
+↓
+Verification
+
+Do not turn the application into only a CRUD + map application.
+
+## Development Progress
+
+13 implementation prompts have already been completed before this context was created.
+
+IMPORTANT:
+Do not assume that a feature is incomplete merely because it appears in the original plan.
+
+Inspect the actual repository and determine what has already been implemented.
+
+## Continuation Rules
+
+### Persistent Progress Records
+
+- Treat this document as the requirements and continuation context, and `PROJECT_STATUS.md` as the verified record of implementation progress.
+- After every significant feature, update `PROJECT_STATUS.md` before reporting completion.
+- Record the verified feature status, files changed, APIs added or modified, database changes, tests performed, known limitations, and next recommended task.
+- Do not mark a feature complete unless the implementation has been verified in the actual source code; distinguish source inspection from runtime/test verification.
+- At the end of every major implementation task, update the progress records before reporting completion.
+
+Before changing anything:
+
+1. Inspect the complete repository.
+2. Read PROJECT_PROGRESS.md.
+3. Inspect git status/log if available.
+4. Identify existing frontend architecture.
+5. Identify existing backend architecture.
+6. Identify existing MongoDB/Mongoose models.
+7. Identify existing API endpoints.
+8. Identify authentication and authorization.
+9. Identify existing GIS implementation.
+10. Identify which of the planned features are already implemented.
+
+Do NOT rewrite working code.
+
+Reuse the existing architecture.
+
+Do NOT create duplicate implementations of existing features.
+
+Do NOT introduce new libraries unless technically necessary.
+
+Do NOT assume that the previous implementation followed the planned architecture perfectly.
+
+Verify the actual code.
+
+## Quality Requirements
+
+Before implementing a feature:
+
+- inspect relevant existing files
+- explain the implementation approach
+- make the minimum necessary changes
+- test the implementation
+- fix build/runtime errors
+- verify existing functionality still works
+
+For algorithmic features, use actual calculations rather than hardcoded results.
+
+For GIS features, use actual geographic data.
+
+For dashboards, use actual backend/database data.
+
+For security, enforce authorization on the backend, not only in React.
+
+## Current Task
+
+The previous development session ended because the AI coding credits were exhausted.
+
+Continue development from the actual repository state.
+
+Do NOT start over.
+
+First inspect the repository and tell me:
+
+1. What has already been implemented
+2. What is partially implemented
+3. What is missing
+4. What the next logical implementation step is
+
+Do not make major changes until the repository has been inspected.
+
+## Latest continuation record — Analytical reporting module
+
+Implemented an admin analytical report page backed by `GET /api/reports/analytical`. The report queries existing database models and includes infrastructure/condition and priority analysis, critical assets, complaint statistics/hotspots, maintenance, routes, gaps and budget recommendations. It supports Panchayat, infrastructure-type, and date filters, CSV download, and browser print/Save as PDF. Backend and frontend TypeScript typechecks passed; database/browser behavior was not runtime-tested. Detailed changed-file/API/database/verification/limitation records are in `PROJECT_STATUS.md`. No model or database schema changes were made.
+
+## Latest continuation record — Repeatable development/demo dataset
+
+Replaced the old sparse one-shot seed with an idempotent fictional Panchayat dataset: 34 connected roads, 18 schools, 3 healthcare facilities, 4 water facilities, 78 complaints, 12 assignments, four clearly marked PDO/admin demo accounts, and two multi-stop saved routes. Added production startup gating and documented demo credentials. Backend TypeScript typecheck passed. The seed was not run against a database; see `PROJECT_STATUS.md` for full file/API/database/verification/limitations and next-task details.
+
+## Latest continuation record — Authorization and Panchayat/data scoping
+
+Completed priority 1 without schema changes or replacing existing modules. Authentication now resolves active users and roles from MongoDB. Server-side checks scope authenticated complaint, issue, infrastructure, assignment, priority, analytics, budget, gap, route, dashboard, and report requests to the caller's Panchayat. PDO assignment access is restricted to the PDO's own work; cross-Panchayat assignment creation, status/actions and route stops are denied. Admin frontend routes confirm role through `/auth/me`. Existing anonymous public reads remain public.
+
+Files changed: `backend/src/types/express.d.ts`; `backend/src/middleware/auth.ts`, `panchayatScope.ts`; `backend/src/controllers/authController.ts`, `citizenComplaintController.ts`, `assignmentController.ts`, `schoolController.ts`, `roadController.ts`, `panchayatController.ts`, `issueController.ts`, `priorityController.ts`, `adminDashboardController.ts`, `reportController.ts`, `routeOptimizationController.ts`, `complaintAnalyticsController.ts`, `gapDetectionController.ts`, `budgetRecommendationController.ts`; `backend/src/routes/assignmentRoutes.ts`, `routeOptimizationRoutes.ts`; `backend/src/services/priorityScoringService.ts`, `complaintAnalyticsService.ts`; `backend/src/test-authorization-api.ts`; `backend/package.json`; `frontend/src/App.tsx`, `frontend/src/store/auth.tsx`, `frontend/src/hooks/useAdminDecisionSupport.ts`, `frontend/src/pages/RouteOptimizationPage.tsx`, `frontend/src/types/route.ts`; and both progress documents. No API path or database schema was added; existing API role/scope behavior was tightened. The repeatable API test command is `npm --prefix backend run test:authorization`.
+
+Verification actually run: backend typecheck and build passed; frontend typecheck and Vite production build passed; existing model test passed all 8 phases on MongoMemoryServer; the new localhost API test passed same-Panchayat reads/assignment create/verification, cross-Panchayat read/create/complete/verification denies, scoped admin behavior, and forged JWT role denial; direct scope helper checks passed. Tests used an isolated in-memory database. Vite reported the existing stale Browserslist data and large-bundle advisory. No lint command exists in the package scripts.
+
+Known risks: an admin without `panchayatId` is treated as system-wide because the schema has no global-admin flag; anonymous public read/analysis endpoints may query any Panchayat; `/upload` remains public and unbound to a Panchayat; route save validates stop ownership but trusts submitted route geometry and metrics; malformed legacy records with cross-Panchayat related references can expose populated related data through an otherwise authorized parent read. No complaint-state or GIS algorithm changes were made. Next task: priority 2, canonical complaint and assignment state handling.
+## Latest continuation record — Priority 2: Canonical complaint and assignment lifecycle
+
+Implemented a canonical complaint lifecycle and routed complaint and assignment changes through their service state machines. Complaint statuses now persist as `SUBMITTED`, `UNDER_REVIEW`, `PRIORITY_SET`, `ASSIGNED`, `REASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `VERIFIED`, `CLOSED`, and `REJECTED`. Normal progression is Submitted → Under Review → Priority Set → Assigned → In Progress → Completed → Verified → Closed. Rejection, reassignment and the existing reopen/rework paths remain exceptional transitions. The complaint model/API contract no longer declares title-case status values. Both citizen complaint creation paths force `SUBMITTED` and discard caller-supplied status history.
+
+Assignment statuses remain `Assigned`, `Accepted`, `In_Progress`, `Completed`, `Verified`, and `Rejected`. State transitions now record actor, role, timestamp, and notes in assignment status history. PDO completion requires nonempty notes, at least one uploaded evidence image, and a valid completion geolocation. Only an administrator can verify, and verification does not close the complaint. The complaint advances to `VERIFIED`; only the separate admin `VERIFIED -> CLOSED` transition closes it.
+
+Legacy compatibility is explicit: `New` maps to `SUBMITTED`, `Resolved` maps to `COMPLETED` (never directly to CLOSED), title-case complaint statuses normalize to their uppercase equivalents, and assignment `In Progress` maps to `In_Progress`. Unknown values are rejected. Added `backend/src/services/lifecycleStatusMigration.ts` and `backend/src/scripts/normalize-lifecycle-statuses.ts`: the migration defaults to dry-run, aborts all writes if any unknown value is found, preserves existing history and appends a normalization audit item when applying known mappings. Run `npm --prefix backend run migrate:lifecycle-statuses` to inspect the plan, then add `-- --apply` only after review. It was exercised on the isolated lifecycle test database; it was not run against the configured database.
+
+**Files changed:** `backend/src/models/Complaint.ts`, `backend/src/models/Assignment.ts`; `backend/src/services/complaints/complaintStateMachine.ts`, new `backend/src/services/assignments/assignmentStateMachine.ts`, new `backend/src/services/lifecycleStatusMigration.ts`, `backend/src/services/complaints/complaintAnalyticsService.ts`, `backend/src/services/reporting/analyticalReportService.ts`, `backend/src/services/dashboard/adminDashboardService.ts`; `backend/src/controllers/citizenComplaintController.ts`, `assignmentController.ts`, `issueController.ts`, `panchayatController.ts`; new `backend/src/scripts/normalize-lifecycle-statuses.ts`; new `backend/src/test-lifecycle-canonical.ts`; `backend/src/test-models.ts`, `test-citizen-module.ts`, `test-pdo-maintenance.ts`, `test-complaints.ts`, `test-admin-dashboard.ts`; `backend/package.json`; `frontend/src/types/citizen.ts`, `frontend/src/components/citizen/ComplaintLifecycleTimeline.tsx`, `frontend/src/components/pdo/PdoTaskCard.tsx`, `CompleteWorkModal.tsx`, `frontend/src/components/admin/dashboard/MaintenanceOpsSection.tsx`, `frontend/src/components/ClusterInspectionModal.tsx`, `frontend/src/pages/citizen/CitizenPortalPage.tsx`, `ComplaintHeatmapPage.tsx`, `MapPage.tsx`, `frontend/src/pages/admin/IssuesPage.tsx`, `frontend/src/pages/pdo/PdoDashboardPage.tsx`, and both progress documents.
+
+**API changes:** existing `PATCH /complaints/:id/status`, `/complaints/:id/transition`, legacy admin `PATCH /issues/:id/status`, assignment action, and compatibility assignment status routes enforce state-machine transitions. Assignment creation accepts an optional `complaintId` and, when linked, only attaches a same-Panchayat complaint in `PRIORITY_SET`, advancing it to `ASSIGNED`. No new public API route was added.
+
+**Database changes:** complaint status enum is now canonical-only. Assignment gained a `statusHistory` array for audited lifecycle transitions. No new collection or index was added. The status normalization utility provides a dry-run/apply migration path; compatibility reads remain necessary until existing data is normalized.
+
+**Tests actually executed:** backend TypeScript build and no-emit typecheck passed; frontend typecheck passed; Vite production build passed (existing stale browser data and large-chunk warnings); existing model suite passed all 8 phases on MongoMemoryServer; new `test-lifecycle-canonical` passed the full canonical lifecycle, forged-status submission sanitization, invalid Completed → Closed, citizen transition denial, PDO verification denial, pre-completion verification denial, cross-Panchayat status denial, legacy Resolved normalization/closure denial, unknown-status non-mutation, and migration history behavior. Existing citizen/complaint suite passed 16/16; existing PDO maintenance suite passed 17/17 after its request mocks were updated to include the Panchayat scope required by Priority 1. The isolated migration test confirmed unknown values prevent writes. Direct `npm` commands were unavailable in this host because its npm launcher references a missing global `npm-cli.js`; repository-local `tsc.cmd` and `vite.cmd` were used instead.
+
+**Known limitations/risks:** assignment and linked complaint updates span two documents without a MongoDB transaction. The handlers pre-check the complaint transition before changing the assignment, but concurrent writes or a database error between saves can leave them out of sync. The existing API has no assignee-replacement operation; complaint `REASSIGNED` transitions are audited, but there is not yet a complete assignment-owner reassignment workflow. Existing legacy records require running the dry-run then `--apply` migration against the intended database after reviewing its output. Next recommended task remains Priority 3 (admin verification flow), after instruction; it was not started here.
+
+## Latest continuation record — Priority 3: GIS and routing correctness
+
+- Road graph construction splits stored road segments at geometric intersections in a local equirectangular projection. Nodes merge only when coordinates agree at the documented 7-decimal coordinate key precision; no proximity connection radius is inferred. Endpoints snap to the nearest segment (maximum 5 km), and same-segment endpoints route directly along that segment. GeoJSON ordering remains `[longitude, latitude]`.
+- Dijkstra results distinguish `NETWORK_ROUTE` from `STRAIGHT_LINE_FALLBACK`. Disconnected network components remain unreachable. Straight-line fallback distances are identified, are never reported as network distances, and produce no duration estimate. Multi-stop ordering remains priority-weighted nearest-neighbor followed by 2-opt; Dijkstra is used per leg and is not an exact multi-stop solver. Inputs are capped at 50 stops; duplicate IDs are removed, distinct colocated assets remain, and unreachable destinations are listed separately and excluded from route geometry.
+- Route saves validate start coordinates and Panchayat-owned infrastructure, recalculate route order/geometry/distance/duration on the server, ignore supplied client metrics/geometry, and refuse routes with fallback or unreachable legs. Route metadata persists routing method/fallback status; legacy records are labelled `LEGACY_UNKNOWN`. Candidate routes use the contextual Panchayat center or stored infrastructure geometry; hardcoded Varthur route origins/default coordinates were removed.
+- Gap analysis reports `WITHIN_THRESHOLD`, `BEYOND_THRESHOLD`, or `NO_FACILITY` for school and road coverage. Missing facilities score as Critical gaps instead of zero severity. Network distance is recorded only for actual network paths. Empty/degenerate grid bounds yield no cells, and grid creation is capped at 10,000 cells. Gap UI calls out missing facilities.
+- **Files changed:** backend routing services `graph.ts`, `dijkstra.ts`, `routingProvider.ts`, `multiStopOptimizer.ts`, `types.ts`; `controllers/routeOptimizationController.ts`; `models/Route.ts`; spatial `gapDetectionService.ts`, `spatialUtils.ts`, `types.ts`; updated `test-routes.ts`, `test-gap-detection.ts`; new `test-gis-routing-correctness.ts`, `test-route-save-api.ts`; frontend `RouteOptimizationPage.tsx`, `MapPage.tsx`, `GapAnalysisPage.tsx`, `types/route.ts`, `types/gap.ts`; and both progress records.
+- **APIs modified:** `POST /api/routes/optimize` returns routing method, fallback use, unreachable stops, duration availability and heuristic description; it caps stop count. `POST /api/routes/save` recalculates values server-side and refuses fallback/unreachable plans. `GET /api/routes/candidates` returns contextual Panchayat origin/name and filters invalid coordinates. Existing route detail access was tested. Gap analysis adds per-facility coverage status. No Priority 1/2 logic changed.
+- **Database changes:** Route adds routing method (`NETWORK_ROUTE`, `STRAIGHT_LINE_FALLBACK`, `LEGACY_UNKNOWN`), optional fallback flag and nullable estimated duration. No migration, collection or index was added; legacy route documents are classified `LEGACY_UNKNOWN`.
+- **Tests actually run:** backend `tsc` build passed; frontend typecheck and Vite production build passed (existing stale Browserslist data and bundle-size advisory). New GIS/routing tests passed intersections, `[lng,lat]`, nearest-segment snapping, disconnected roads, no proximity merging, dead ends, multiple paths, 2/3/duplicate/empty/excessive stops, unreachable stops and fallback duration/method metadata. Existing route engine tests passed. New isolated MongoDB route-save API tests passed valid recalculated save, malformed client geometry, manipulated metrics, cross-Panchayat stops, invalid origin and unauthorized route access. Gap tests passed thresholds, no-school/no-road/no-facility, severity, grid and empty-bounds cases. Existing MongoMemoryServer model suite passed 8/8 phases; complaint integration 16/16; PDO maintenance 17/17; GIS layers 9/9. No live road-network accuracy was claimed or tested.
+- **Known limitations:** Connectivity is based only on stored line geometry and computed planar intersections. The graph does not model bridges/grade separation, one-way roads, turn restrictions, closures, collinear overlaps or missing/inaccurate roads. Near misses remain disconnected unless stored coordinates/intersections meet. The 5 km endpoint snap limit can cause a labelled geodesic fallback. Graph intersection building and route matrices are quadratic; routes cap at 50 stops. Average speed and per-stop inspection buffers are assumptions, not traffic predictions. Panchayats have center points but no boundary polygon to validate whether a chosen start lies within the administrative border. Demo road geometry was not field-verified.
+- **Next recommended task:** Priority 4 from the audit, after user instruction. No Priority 4 work was started.
+
+## Historical pre-approval continuation record — Excel source data dry run
+
+A repeatable, source-aware Excel importer and source-data handling were implemented. The attached item contained the request text, not the workbook binary; the matching workbook inspected in Downloads was `Adyar_5_Panchayats_MAX_Infrastructure_Inventory.xlsx`. This describes the pre-approval state; pending-import statements below are superseded by the completed import record.
+
+Workbook validation read `ALL_Infrastructure`, `Panchayat_Info`, `Row_Summary`, `Sources`, and `Data_Dictionary`. It found 100 infrastructure rows: Adyar 19, Harekala 16, Neermarga 18, Pavuru 30, Pudu 17. Category counts: Administration 10; Healthcare 19; Childcare 7; Education 8; Water 10; Transport 17; Civic 10; Public service 14; Animal Husbandry 1; Sanitation 1; Digital public service 1; Community 1; Utilities 1. All 100 rows lack both coordinates; no partial or invalid coordinates. 56 rows are flagged by the explicit status/notes keyword verification heuristic. No duplicate stable identities, missing identity fields, or row-summary mismatches were found. Thirty-one reported-quantity values are qualitative strings and remain unchanged. Six records retain outside/nearby wording in source status (five `Not within village`, one `Outside village (<1 km)`).
+
+Mapping preserves Panchayat name, Taluka, village-name list, village count, administrative note and source, without inventing district/state, ward structure, coordinate-bearing habitations, contacts, population or center. Infrastructure fields are retained in provenance and the raw source-data object. Category/type mapping is conservative; exact source status and quantity remain available, ambiguous statuses are not normalized to a factual app status. Missing condition, complaints, served population, traffic, maintenance history, repair costs and coordinates remain unavailable; source rows are marked unscored. The UI lists unlocated source assets without putting them on the map. Gap analysis now returns an explicit unavailable reason when it cannot analyze any usable locations.
+
+The read-only dry-run against `rdmt` succeeded twice. It proposes five Panchayats and 100 infrastructure inserts, zero updates, skips, conflicts or existing records affected; stable duplicate source keys are zero. Existing counts remain Panchayats 1, infrastructure 8, complaints 0, assignments 0, routes 0, users 4, priorityconfigs 0. No synthetic complaints, assignments, routes or users are planned. Existing Varthur remains untouched. No Kerehalli seed data was added. The importer derives 69 distinct proposed indexes from the current Mongoose schemas; the live collections currently show only `_id_` indexes. Mongo auto-indexing is disabled to defer index mutations until backup verification.
+
+**Files changed:** backend `src/models/Panchayat.ts`, `Infrastructure.ts`, `Complaint.ts`, `Assignment.ts`, `Route.ts`, `User.ts`; `src/config/db.ts`; `src/seed/demoDataset.ts`, `seed.ts`; `src/services/priorityScoringService.ts`, `services/budget/budgetRecommendationService.ts`, `services/dashboard/types.ts`, `services/dashboard/adminDashboardService.ts`, `services/spatial/types.ts`, `services/spatial/gapDetectionService.ts`, `services/reporting/analyticalReportService.ts`; `src/controllers/priorityController.ts`, `gapDetectionController.ts`; new `src/scripts/import-source-excel.mjs`, `src/scripts/import-source-excel.test.mjs`; `src/test-priority.ts`, `test-admin-dashboard.ts`, `test-gis-map-layers.ts`, `test-authorization-api.ts`; `backend/package.json`, `package-lock.json`. Frontend `src/types/priority.ts`, `types/adminDashboard.ts`, `types/gap.ts`; `src/pages/MapPage.tsx`, `PriorityDashboardPage.tsx`, `GapAnalysisPage.tsx`; `src/components/ScoreExplanationModal.tsx`, `components/admin/dashboard/OverviewSection.tsx`, `MapIntelligenceSection.tsx`. Both progress files.
+
+**API/database changes:** No API endpoint added; gap-analysis results now include spatial-analysis availability and unavailable reason. Model schemas gained source/provenance and synthetic/demo fields and tolerate missing source attributes. No live database mutation or migration was made.
+
+**Tests actually run:** backend TypeScript typecheck/build passed; frontend TypeScript typecheck/Vite production build passed; source-importer unit tests passed 3/3; read-only MongoDB dry-run passed twice. Vite reported stale Browserslist data and a >500 kB bundle advisory. MongoMemoryServer model tests failed to start `mongod` with an internal `fassert()` error after an initial temporary-directory permission failure; an OS-temp setting was made configurable, but runtime suite verification remains blocked. The authorization API test first revealed an outdated assertion attempting verification from `Assigned`; it was corrected to exercise the canonical evidence-backed assignment lifecycle, but the rerun also failed during MongoMemoryServer startup. No lifecycle/GIS/complaint/PDO runtime pass is claimed. MongoDB Database Tools are unavailable (`mongodump`/`mongorestore` not found); no backup was attempted. The importer apply mode was not run and is unverified.
+
+**Known limitations:** No source coordinates means these records cannot yet be mapped/routed or support spatial gap analysis. Missing operational/condition/usage/maintenance/cost data means no defensible priority or budget score can be calculated. The 56 verification flags are triage hints, not official verification. Varthur documents were left unchanged and are not yet individually tagged `LEGACY_DEMO`; untagged infrastructure is counted as legacy/demo in dashboard metrics. Ordinary server startup skips Kerehalli unless `SEED_DEMO_DATA=true`, while the explicit standalone seed command remains available. Apply requires MongoDB Database Tools and runtime validation.
+
+**Historical next step:** Review and approve the dry run. This was completed and superseded by the following import record. Do not run the Kerehalli seed against `rdmt`.
+
+## Latest continuation record — Approved source Excel import
+
+- **Status:** Completed once against `mongodb://localhost:27017/rdmt` using the approved workbook. No importer or application source code was changed for the import.
+- **Backup:** The user-referenced pre-existing path `D:\College\mini project\rdmt_backups\rdmt_backup_before_source_import_20260925_190920` did not exist. The previously verified backup was at a different path. The importer created a fresh backup before applying at `D:\College\mini project\rdmt_backups\rdmt_backup_before_source_import_apply_20260925_191508`; output confirms `mongodump` completed and `mongorestore --dryRun` verified the dump before writes.
+- **Database changes:** Inserted 5 source Panchayats (Adyar, Harekala, Neermarga, Pavuru, Pudu) and 100 `SOURCE_EXCEL`, non-synthetic infrastructure records. Inserted 0 complaints, assignments, routes, or users; updated 0 pre-existing records; deleted 0 documents. Source-key unique indexes and schema-derived indexes were created after backup verification. Varthur Gram Panchayat and its 8 infrastructure documents remain present. Kerehalli was not seeded/imported.
+- **Counts after import:** Panchayats 6; infrastructures 108; complaints 0; assignments 0; routes 0; users 4; priorityconfigs 0 documents (collection exists with indexes but is empty).
+- **Reconciliation:** Adyar 19; Harekala 16; Neermarga 18; Pavuru 30; Pudu 17; Varthur 8; total infrastructure 108. All 100 source records have no location, `coordinatesVerified=false`, `coordinateSource=UNAVAILABLE`, and `priorityScorable=false`. There are 100 unique source keys and 56 verification flags. Workbook comparison by stable key found zero mismatches in source status, verification notes, reported quantity, or provenance. Post-import dry run proposed 0 Panchayat creates, 0 infrastructure inserts, 5 source-Panchayat updates and 100 source-row updates, with zero skips/conflicts; apply mode was not run again.
+- **API changes:** None. No endpoint was modified.
+- **Files changed for this task:** `PROJECT_PROGRESS.md.txt` and `PROJECT_STATUS.md` only. Build artifacts were generated by validation. No application source or database records were manually edited after import.
+- **Checks actually run:** Backend typecheck/build passed; frontend typecheck/Vite build passed; source-importer tests passed 3/3. Read-only MongoDB reconciliation passed. Direct priority-service check returned all 19 Adyar records as unscored with zero calculated scores. Direct gap-service check reported spatial analysis unavailable because coordinates are missing and returned zero underserved areas. Panchayat scope helper resolved Varthur scope and denied a cross-Panchayat Adyar request with 403.
+- **Runtime verification issue:** HTTP smoke test could not import the existing Express app. `backend/src/models/School.ts` re-exports `SchoolDoc` from `Infrastructure.js` as a runtime export; Node reported that `Infrastructure.js` has no such export. Live `GET /panchayats` and authenticated API-level scoping remain unverified. Direct database, service, and scope-helper checks did run. No MongoMemoryServer suite was run for this import validation.
+- **UI verification/limitations:** Source inspection confirms MapPage lists unlocated source records separately and does not map records without coordinates. PriorityDashboard filters out unavailable-score records, so these source rows do not appear in that table. Browser verification was blocked by the app import error. Source records cannot be mapped/routed or geographically analyzed until coordinates are verified, and cannot be scored until operational inputs are supplied. Verification flags are triage hints, not official verification.
+- **Next recommended task:** Fix the existing type-only re-export runtime issue, then verify `GET /panchayats`, authenticated Panchayat scoping, map/table behavior, and the imported dataset in a browser. Keep this source-only dataset separate from any later demo-seed or production-data strategy.
+
+## Latest continuation record — Model type-only re-exports
+
+- **Status:** Fixed the model runtime export failure with a minimal TypeScript ESM export correction. No database operation, migration, importer, or seed was run.
+- **Root cause:** `SchoolDoc` and `RoadDoc` are TypeScript interfaces declared in `Infrastructure.ts`; they are not JavaScript runtime values. Compatibility modules re-exported them with ordinary `export { ... }`, which asked Node ESM to resolve nonexistent runtime exports. The same pattern existed for both school and road models.
+- **Files changed:** `backend/src/models/School.ts`, `backend/src/models/Road.ts`, `backend/src/services/priorityScoringService.ts` (document interfaces use an explicit type-only import), `PROJECT_PROGRESS.md.txt`, and `PROJECT_STATUS.md`. TypeScript emitted build files under `backend/dist/`.
+- **Fix:** Runtime re-exports remain for `School` and `Road`; `SchoolDoc` and `RoadDoc` now use `export type`. `InfrastructureDoc` and `RoadDoc` are explicitly imported using `import type`. Compiled ESM modules export only actual model values.
+- **Checks:** Backend typecheck/build passed; frontend typecheck/Vite build passed. Importing compiled `dist/app.js` succeeded. Compiled compatibility modules expose the model runtime exports and no interface runtime values.
+- **Server/API:** The project's direct `ts-node-dev` invocation reported `no script to run provided`; the built entrypoint `node dist/server.js` started, explicitly skipped the demo seed, and listened on port 4000. MongoDB at localhost:27017 was unavailable (`ECONNREFUSED`), so the app fell back to a temporary empty MongoMemoryServer. On that fallback only, `GET /panchayats` returned HTTP 200 with an empty list and `GET /priorities` returned HTTP 200. No `/health` route exists (`GET /health` returned 404). This does not verify the persistent dataset or Panchayat-specific API behavior.
+- **Persistent database:** The MongoDB Windows service was observed stopped. Starting it was denied by Windows, including a retry with elevated tool permissions. The direct read-only count query could not connect before testing, so no post-test live count verification was possible. Because the service was unavailable, no persistent database API request or document mutation occurred. The empty memory fallback was stopped after smoke testing; the seed was explicitly disabled.
+- **Authorization/GIS:** No authenticated API or imported-record GIS check could be performed without the persistent DB. No authorization logic changed, and no coordinates or database documents were created/modified/deleted.
+- **Remaining issues:** MongoDB service access is required to complete real-data API/count tests. The repository has no health endpoint. The configured `ts-node-dev` development command rejected its invocation; the compiled server entrypoint started successfully.
+- **Next recommended task:** After MongoDB service access is restored, run read-only count checks and Panchayat/infrastructure API smoke tests against `rdmt`. Do not rerun the importer or Kerehalli seed.
+
+## Latest diagnostic update — Browser data loading
+
+- **Commands:** Root `npm start` launches backend `npm run dev` and frontend `npm run dev` concurrently. Backend `dev` is `ts-node-dev --respawn --transpile-only --esm src/server.ts`; backend `start` is `node dist/server.js`; backend build is `tsc`. Frontend `dev` is Vite on port 5180; frontend build is `vite build`.
+- **Configuration:** Backend `.env` resolves (credentials omitted) to `mongodb://localhost:27017/rdmt`; backend port defaults to 4000. Frontend `VITE_BACKEND_URL` was unset and no frontend `.env*` files were present. Landing/Schools/Roads use `http://localhost:4000` in development with no override; other main pages use relative URLs. Vite proxies `/panchayats`, `/api`, `/priorities`, `/complaints`, `/routes`, `/gap-analysis` and related routes to `http://localhost:4000`. Backend CORS middleware is `cors()`. Production Landing/Schools/Roads use same-origin relative requests when no `VITE_BACKEND_URL` is supplied.
+- **Read-only DB snapshot:** Before startup, connected to the configured database and confirmed panchayats 6, infrastructure 108, users 4, complaints 0, assignments 0, routes 0. Counts: Varthur 8; Adyar 19; Harekala 16; Neermarga 18; Pavuru 30; Pudu 17. MongoDB was later observed stopped, so no after-count query was possible.
+- **Startup observation:** `npm.cmd --prefix backend run start` launched `node dist/server.js`. MongoDB connection failed with `ECONNREFUSED ::1:27017` and `ECONNREFUSED 127.0.0.1:27017`; current `connectDb()` silently fell back to MongoMemoryServer, and the backend then listened on port 4000. `SEED_DEMO_DATA` was false and startup logged that demo seed was skipped. The fallback process was stopped without API calls.
+- **Frontend trace:** Exact `Failed to load data` is set by `Landing.tsx`, `SchoolsPage.tsx`, and `RoadsPage.tsx` when fetch fails or returns non-2xx. No browser tab was available, so the exact page/request URL/status/body cannot be observed. Source shows dev `GET http://localhost:4000/panchayats` for these pages; production uses same-origin `/panchayats` unless an override is configured. A deployed frontend requires a reachable backend or same-origin proxy. CORS is permissive in source; CORS is not indicated as the primary cause. Hosting status could not be verified.
+- **Diagnosis and safety:** Backend/Mongo connection failure plus misleading memory fallback is confirmed during startup; a specific browser failure is not confirmed. No code, schema, or database changes were made; no API mutation, importer, seed, or migration ran. Persistent database counts after testing could not be queried because MongoDB stopped. Fallback behavior was inspected but not changed.
+- **Next task:** Diagnose why the MongoDB service stops/refuses the backend connection, then repeat read-only endpoint and browser-network checks against the live database. Separately consider making database connection failure fatal or visibly degraded rather than silently serving an empty memory database. No fix was implemented in this diagnostic task.
+
+## Latest continuation record — Backend development startup
+
+- **Status:** Fixed the backend `dev` command and verified it against the persistent `rdmt` database. No MongoDB data, schema, seed, or importer changes were made.
+- **Root cause:** Installed `ts-node-dev` 2.0.0 does not define `--esm`; its CLI parser uses `stopEarly`, so the unsupported flag prevented recognition of `src/server.ts`. Removing the flag alone causes a `require()`/ESM error. Native ts-node ESM loading encounters other pre-existing type re-export runtime errors. Existing TypeScript NodeNext compilation and Node ESM output provide a compatible runner.
+- **File changed:** `backend/package.json` only. `dev` now runs an initial `npm run build`, then root-installed `concurrently` runs `tsc --watch --preserveWatchOutput` alongside `node --watch dist/server.js`. Source changes compile, then compiled ESM restarts. TypeScript and module configuration are unchanged.
+- **Backend test:** `npm.cmd run dev` from `backend/` passed its build. Logs confirmed connection to `mongodb://localhost:27017/rdmt`, skipped development/demo seed, listened on port 4000, watch compilation had zero errors, and the Node watch restart reconnected and again skipped seeding.
+- **Read-only API tests:** `GET /panchayats` returned 200, array of 6. `GET /priorities` returned 200 with `{items, stats}` and total 108. Panchayat filters returned 200 with Adyar 19, Harekala 16, Neermarga 18, Pavuru 30, Pudu 17, Varthur 8. All imported source records have no coordinates. No health endpoint exists (`GET /health` returned 404).
+- **Frontend:** Vite ran at `http://127.0.0.1:5180/`. Browser Landing rendered live Varthur data without the failure message. Through the Vite proxy, `/panchayats` returned 200 with 6 records and `/priorities?panchayatId=<Adyar ID>` returned 200 with 19. Backend CORS allows the frontend origin. Vite needed elevated permission to bind its port in this environment.
+- **Database safety:** Read-only counts before and after matched: Panchayats 6, infrastructure 108, users 4, complaints 0, assignments 0, routes 0, priorityconfigs 0. Per-Panchayat counts matched. Seed was explicitly disabled and logged skipped. Only GET requests and count/find queries were issued.
+- **Remaining limitation:** `connectDb()` still falls back silently to MongoMemoryServer if MongoDB is unavailable; behavior was not changed. Root-level `npm start` was not rerun as one command, but its backend and frontend dev components were started and verified independently. No database or schema changes occurred.
+- **Next recommended task:** Consider changing the silent memory fallback to a fatal or visibly degraded state. No further data setup is needed.
+
+## Latest implementation record — Source Panchayat visibility and scoped Panchayat listing
+
+- **Root cause verified:** `GET /panchayats` returned all six documents in insertion order with Varthur first. `frontend/src/pages/Landing.tsx` displayed only `panchayats[0]`; `MapPage.tsx` selected `list[0]` and then requested `/priorities?panchayatId=<selected id>`, correctly limiting the first map view to Varthur's eight. `SchoolsPage.tsx` and `RoadsPage.tsx` also fetched only the first Panchayat. The shared infrastructure endpoint is `GET /priorities` (not `/infrastructures`): unfiltered it returned 108 records and a selected Panchayat returned its expected count. Source entries have null location/ward/condition fields, which the prior Schools/Roads UI assumed were always populated.
+- **Authorization finding:** `optionalAuth` validates a supplied bearer token and `panchayatScope.ts` restricts assigned users. Existing active admin, PDO, and citizen accounts are assigned to Varthur. `listPanchayats` incorrectly applied the child-document field `panchayatId` to Panchayat records, whose identifier is `_id`; this returned zero Panchayat records for authenticated scoped users. Corrected the query to `_id` while retaining the current scope rules. An admin with an assigned Panchayat remains scoped; system-wide admin behavior remains available only for an admin with no assigned Panchayat. No user records or permissions were changed.
+- **Files changed:** `backend/src/controllers/panchayatController.ts`; `frontend/src/pages/Landing.tsx`; `frontend/src/pages/MapPage.tsx`; `frontend/src/pages/SchoolsPage.tsx`; `frontend/src/pages/RoadsPage.tsx`; this file and `PROJECT_STATUS.md`.
+- **Behavior:** Landing now lists all six Panchayats and links to the selected map view. The map defaults to the first `SOURCE_EXCEL` Panchayat where present, supports direct Panchayat selection, and continues to include Varthur. Roads and Schools now expose a Panchayat selector, default to the source dataset when present, display source status, and render missing ward/condition/location as unavailable instead of throwing or inventing coordinates. Map source rows without coordinates remain in the unlocated-record list and are not plotted.
+- **APIs:** No new endpoints. `GET /panchayats` now filters an assigned user's Panchayat using `_id`; `GET /priorities` behavior and `panchayatId` scope are unchanged.
+- **Tests/checks actually run:** Backend `npm run typecheck` and `npm run build` passed. Frontend `npm run typecheck` and `npm run build` passed (existing stale Baseline/Browserslist and bundle-size advisory warnings). Live GET checks returned six Panchayats and 108 infrastructure items; by Panchayat: Varthur 8, Adyar 19, Neermarga 18, Pavuru 30, Harekala 16, Pudu 17. Scoped short-lived tokens for the existing admin/PDO/citizen roles each returned one assigned Panchayat; cross-Panchayat Adyar priority queries returned HTTP 403. Browser checks showed all six landing cards, Adyar selected by default with all 19 source rows listed as unlocated, Adyar Schools (1) and Roads (2) rendering null source fields safely, and Varthur displaying eight map assets. All database operations in this task were reads/counts only; no import, seed, write, or schema operation was run.
+- **Test limitation:** The existing `npm run test:authorization` suite was attempted but MongoMemoryServer failed to start with `mongod internal error (fassert() failure)`, before the test could execute. Authorization behavior was instead smoke-tested against the live API using read-only requests and ephemeral signed tokens; no token or secret was recorded.
+- **Current read-only database observation after checks:** panchayats 6, infrastructures 108, users 5, complaints 1, assignments 0, routes 0, priorityconfigs 0. This differs from the older recorded snapshot of users 4 / complaints 0; no write operation was issued by this task, and the user/complaint difference was observed rather than changed here.
+- **Remaining limits:** The five imported Panchayats' infrastructure records still have no verified coordinates; map pins and spatial analysis remain unavailable for those items. The existing admin account is assigned to Varthur and therefore is not a system-wide admin under the current policy. The website's public read calls currently omit bearer tokens, so the scoped-user checks apply when callers send authenticated requests; this task did not redesign that existing API access policy.
+- **Next recommended task:** Decide whether to assign/establish a separate system-wide administrator through the authorized account-management process, then continue the next approved project priority. No authorization broadening or database update was made here.

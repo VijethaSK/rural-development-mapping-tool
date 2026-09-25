@@ -1,0 +1,16 @@
+{
+  "name": "rdmt",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Rural Development Mapping Tool (RDMT) - monorepo",
+  "scripts": {
+    "postinstall": "npm --prefix backend install && npm --prefix frontend install",
+    "start": "concurrently \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
+    "test:models": "npm --prefix backend run test:models"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
+

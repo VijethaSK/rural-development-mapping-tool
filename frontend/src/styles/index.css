@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+.btn { @apply inline-flex items-center justify-center rounded-md px-3 py-2 font-medium transition-colors; }
+.btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700; }
+.btn-secondary { @apply bg-slate-800 text-white hover:bg-slate-900; }
+.card { @apply rounded-lg border bg-white shadow-sm; }
+.card-body { @apply p-4; }
+
+:root { color-scheme: light dark; }
+[data-theme='dark'] body { background-color: #0f172a; color: #e2e8f0; }
+[data-theme='dark'] .card { background-color: #0b1220; border-color: #334155; }
+[data-theme='dark'] .card-body { color: #e2e8f0; }
+[data-theme='dark'] .btn-primary { background-color: #2563eb; }
+[data-theme='dark'] .btn-secondary { background-color: #1f2937; }
+[data-theme='dark'] .app-header { background-color: rgba(2,6,23,0.8); border-color: #334155; }
+[data-theme='dark'] a { color: #60a5fa; }
+
+@media print {
+  @page { size: auto; margin: 14mm; }
+  :root, html, body, #root { height: auto !important; color-scheme: light !important; }
+  html, body { background: #fff !important; color: #111827 !important; }
+  .app-header, .app-footer, footer, .no-print { display: none !important; }
+  body { font-size: 10pt; }
+  .report-page { max-width: none !important; padding: 0 !important; }
+  .report-content { gap: 10px !important; }
+  .report-section, .report-content > div { box-shadow: none !important; break-inside: avoid; }
+  .report-section { padding: 12px !important; }
+  table { font-size: 8pt !important; }
+  th, td { padding: 4px !important; }
+  button, select, input { display: none !important; }
+}
