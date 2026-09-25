@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose, { type HydratedDocument } from 'mongoose';
 import { Assignment, AssignmentDoc, AssignmentStatus } from '../../models/Assignment.js';
 import { UserRole } from '../../models/User.js';
 
@@ -48,7 +48,7 @@ export class AssignmentStateMachineService {
   static assertCompletionEvidence = assertCompletionEvidence;
 
   static async transition(
-    assignment: AssignmentDoc,
+    assignment: HydratedDocument<AssignmentDoc>,
     targetValue: string,
     actor: AssignmentActor,
     options: { notes?: string; completionImages?: Array<{url: string; caption?: string}>; completionLocation?: {type?: 'Point'; coordinates: number[]}; actualCost?: number; verificationNotes?: string } = {}
