@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../api/client';
+import { filterRoadRecords, getRoadLineCoordinates, roadGeometryAvailability } from '../utils/roadGeometry';
 
 type Panchayat = { _id: string; name: string; dataOrigin?: string };
 type Road = {
@@ -13,9 +14,12 @@ type Road = {
   sourceType?: string;
   sourceCategory?: string;
   dataOrigin?: string;
+  coordinatesVerified?: boolean;
+  coordinateSource?: string | null;
+  coordinateStatus?: string;
   location?: { coordinates?: [number, number] } | null;
-  lineGeometry?: { coordinates?: [number, number][] };
-  geometry?: { coordinates?: [number, number][] };
+  lineGeometry?: { type?: string; coordinates?: [number, number][] };
+  geometry?: { type?: string; coordinates?: [number, number][] };
 };
 
 export default function RoadsPage() {
@@ -54,9 +58,7 @@ export default function RoadsPage() {
     return () => ac.abort();
   }, [panchayatId]);
 
-  const filtered = useMemo(() => roads.filter((road) =>
-    (!ward || (road.ward || '') === ward) && (!condition || (road.condition || '') === condition)
-  ), [roads, ward, condition]);
+  const filtered = useMemo(() => filterRoadRecords(roads, ward, condition), [roads, ward, condition]);
   const wards = useMemo(() => [...new Set(roads.map((road) => road.ward).filter(Boolean) as string[])].sort(), [roads]);
   const conditions = useMemo(() => [...new Set(roads.map((road) => road.condition).filter(Boolean) as string[])].sort(), [roads]);
 
@@ -82,8 +84,8 @@ export default function RoadsPage() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((road) => {
-          const geometry = road.lineGeometry?.coordinates || road.geometry?.coordinates;
-          const hasGeometry = Boolean(geometry?.length);
+          const hasGeometry = getRoadLineCoordinates(road) !== null;
+          const geometryStatus = roadGeometryAvailability(road);
           const conditionLabel = road.condition || 'Condition unavailable';
           return <div key={road._id} className="card">
             <div className="card-body">
@@ -94,7 +96,9 @@ export default function RoadsPage() {
                 {road.dataOrigin === 'SOURCE_EXCEL' && <span className="ml-2 px-2 py-1 rounded-full text-xs bg-slate-100 text-slate-700">Source record</span>}
               </div>
               {road.sourceStatus && <div className="text-sm text-slate-600 mb-2">Source status: {road.sourceStatus}</div>}
-              {hasGeometry ? <a className="text-blue-600" href="/map">View on Map</a> : <span className="text-sm text-slate-500">Location not verified; not shown on map</span>}
+              {hasGeometry
+                ? <a className="text-blue-600" href="/map">Mapped road line · View on Map</a>
+                : <span className="text-sm text-slate-500">{geometryStatus}</span>}
             </div>
           </div>;
         })}

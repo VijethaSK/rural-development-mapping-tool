@@ -5,6 +5,7 @@ import { RankedInfrastructure, PriorityLevel } from '../types/priority';
 import { HeatmapPoint, ComplaintCluster, ComplaintDetail } from '../types/complaint';
 import { UnderservedArea } from '../types/gap';
 import { api, apiFetch } from '../api/client';
+import { countRoadRecords, filterMappedRoads, getRoadLineCoordinates } from '../utils/roadGeometry';
 import HeatmapOverlay from '../components/HeatmapOverlay';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
 import ClusterInspectionModal from '../components/ClusterInspectionModal';
@@ -435,13 +436,14 @@ export default function MapPage() {
   const sourceCategories = useMemo(() => Array.from(new Set(rankedAssets.map((asset) => asset.sourceCategory).filter(Boolean) as string[])).sort(), [rankedAssets]);
   const unlocatedSourceAssets = useMemo(() => rankedAssets.filter((asset) => asset.dataOrigin === 'SOURCE_EXCEL' && !asset.location?.coordinates), [rankedAssets]);
 
-  // Layer 1: Roads
-  const roadAssets = useMemo(() => {
-    if (!layers.roads) return [];
-    return filteredAssets.filter(
-      (a) => a.type.toLowerCase() === 'road' && (a.lineGeometry?.coordinates || a.location?.coordinates)
-    );
-  }, [filteredAssets, layers.roads]);
+  // Road records can have approximate Points, but only valid LineStrings are mapped as roads.
+  const roadRecordAssets = useMemo(
+    () => filteredAssets.filter((asset) => asset.type.toLowerCase() === 'road'),
+    [filteredAssets]
+  );
+  const mappedRoadAssets = useMemo(() => filterMappedRoads(roadRecordAssets), [roadRecordAssets]);
+  const roadCounts = useMemo(() => countRoadRecords(roadRecordAssets), [roadRecordAssets]);
+  const roadAssets = layers.roads ? mappedRoadAssets : [];
 
   // Layer 2: Schools
   const schoolAssets = useMemo(() => {
@@ -754,8 +756,9 @@ export default function MapPage() {
                   />
                   <span>🛣️ Roads Layer</span>
                 </label>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                  {roadAssets.length}
+                <span className="flex flex-col items-end px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                  <span>{roadCounts.mappedRoads} mapped</span>
+                  <span className="font-normal">{roadCounts.roadRecords} road records</span>
                 </span>
               </div>
 
@@ -1166,8 +1169,8 @@ export default function MapPage() {
 
           {/* LAYER 1: ROADS (POLYLINES) */}
           {roadAssets.map((road) => {
-            const rawCoords = road.lineGeometry?.coordinates || [];
-            if (!rawCoords.length) return null;
+            const rawCoords = getRoadLineCoordinates(road);
+            if (!rawCoords) return null;
             const latLngs: [number, number][] = rawCoords.map(([lng, lat]) => [lat, lng]);
 
             const color =

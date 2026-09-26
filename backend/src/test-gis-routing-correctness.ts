@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { RoadGraph } from './services/routing/graph.js';
 import { DijkstraShortestPath } from './services/routing/dijkstra.js';
-import { DijkstraRoadGraphProvider } from './services/routing/routingProvider.js';
+import { DijkstraRoadGraphProvider, roadDocumentsToLineInputs } from './services/routing/routingProvider.js';
 import { MultiStopOptimizer, MAX_ROUTE_STOPS } from './services/routing/multiStopOptimizer.js';
 import { StopCandidate } from './services/routing/types.js';
 
@@ -40,6 +40,30 @@ const emptyGraph = new RoadGraph();
 const fallback = DijkstraShortestPath.findShortestPath(emptyGraph, coord(77.6), coord(77.601));
 assert.equal(fallback.routingMethod, 'STRAIGHT_LINE_FALLBACK');
 assert.equal(fallback.fallbackUsed, true);
+
+const sourcePointOnlyRoads = roadDocumentsToLineInputs([{
+  _id: 'source-point-only',
+  name: 'Public road network',
+  location: { type: 'Point', coordinates: [74.93052, 12.867023] },
+  coordinateSource: 'PUBLIC_MAP_APPROXIMATE',
+  coordinateStatus: 'APPROXIMATE',
+  coordinatesVerified: false
+}]);
+assert.equal(sourcePointOnlyRoads.length, 0, 'approximate Point-only source road is not converted into a graph line');
+const sourcePointOnlyGraph = new RoadGraph();
+sourcePointOnlyGraph.addRoads(sourcePointOnlyRoads);
+assert.equal(sourcePointOnlyGraph.nodeCount, 0, 'Point-only source road contributes no routing nodes or edges');
+
+const demoRoads = roadDocumentsToLineInputs([{
+  _id: 'demo-road',
+  name: 'Kerehalli Santhe Main Road',
+  lineGeometry: { type: 'LineString', coordinates: [[75.5, 13.9], [75.51, 13.9], [75.52, 13.9]] },
+  geometry: { type: 'LineString', coordinates: [[75.5, 13.9], [75.51, 13.9], [75.52, 13.9]] }
+}]);
+assert.equal(demoRoads.length, 1, 'a stored demo LineString remains eligible for the routing graph');
+const demoRoadGraph = new RoadGraph();
+demoRoadGraph.addRoads(demoRoads);
+assert.ok(demoRoadGraph.nodeCount >= 2, 'demo road LineString still creates a routable graph');
 
 const providerGraph = new RoadGraph();
 providerGraph.addRoad({ coordinates: [[77.6, 12.9], [77.61, 12.9]] });

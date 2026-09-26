@@ -4,9 +4,60 @@ import {
   DistanceMatrixResult,
   IRoutingProvider
 } from './types.js';
-import { RoadGraph } from './graph.js';
+import { RoadGraph, RoadLineInput } from './graph.js';
 import { DijkstraShortestPath } from './dijkstra.js';
 import { Road } from '../../models/Infrastructure.js';
+
+export interface RoadDocumentForRouting {
+  _id?: unknown;
+  name?: string;
+  lineGeometry?: unknown;
+  geometry?: unknown;
+  location?: unknown;
+  coordinatesVerified?: boolean;
+  coordinateSource?: string | null;
+  coordinateStatus?: string;
+}
+
+interface ValidRoadLineString {
+  type: 'LineString';
+  coordinates: [number, number][];
+}
+
+function isValidRoadLineString(value: unknown): value is ValidRoadLineString {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as { type?: unknown; coordinates?: unknown };
+  return candidate.type === 'LineString' &&
+    Array.isArray(candidate.coordinates) &&
+    candidate.coordinates.length >= 2 &&
+    candidate.coordinates.every((coordinate) =>
+      Array.isArray(coordinate) &&
+      coordinate.length === 2 &&
+      typeof coordinate[0] === 'number' && Number.isFinite(coordinate[0]) &&
+      coordinate[0] >= -180 && coordinate[0] <= 180 &&
+      typeof coordinate[1] === 'number' && Number.isFinite(coordinate[1]) &&
+      coordinate[1] >= -90 && coordinate[1] <= 90
+    );
+}
+
+/** Point locations are deliberately ignored: only valid stored LineStrings add road edges. */
+export function roadDocumentsToLineInputs(roads: readonly RoadDocumentForRouting[]): RoadLineInput[] {
+  const inputs: RoadLineInput[] = [];
+  for (const road of roads) {
+    const line = isValidRoadLineString(road.lineGeometry)
+      ? road.lineGeometry
+      : isValidRoadLineString(road.geometry)
+        ? road.geometry
+        : null;
+    if (!line) continue;
+    inputs.push({
+      _id: road._id == null ? undefined : String(road._id),
+      name: road.name,
+      coordinates: line.coordinates
+    });
+  }
+  return inputs;
+}
 
 /**
  * Concrete Dijkstra Road Graph Routing Provider.
@@ -34,19 +85,7 @@ export class DijkstraRoadGraphProvider implements IRoutingProvider {
     }
 
     const roads = await Road.find(filter).lean();
-    const roadInputs = [];
-    for (const r of roads) {
-      const coords =
-        r.lineGeometry?.coordinates ||
-        (r.geometry as any)?.coordinates;
-      if (coords && coords.length >= 2) {
-        roadInputs.push({
-          _id: r._id,
-          name: r.name,
-          coordinates: coords
-        });
-      }
-    }
+    const roadInputs = roadDocumentsToLineInputs(roads);
     this.graph.addRoads(roadInputs);
     return this.graph.nodeCount;
   }
