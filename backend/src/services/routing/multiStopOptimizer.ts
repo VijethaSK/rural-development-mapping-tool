@@ -92,7 +92,10 @@ export class MultiStopOptimizer {
       if (allNetwork) elapsed += (legKm / speed) * 60;
       if (path.coordinates.length) coords.push(...(coords.length ? path.coordinates.slice(1) : path.coordinates));
       const arrival = allNetwork ? elapsed : undefined;
-      orderedStops.push({ sequence: orderedStops.length + 1, infrastructureId: stop.infrastructureId, infrastructureName: stop.infrastructureName || `Asset ${stop.infrastructureId}`, type: stop.type, location: stop.location, priorityScore: stop.priorityScore, priorityLevel: stop.priorityLevel, distanceFromPreviousKm: Number(legKm.toFixed(2)), cumulativeDistanceKm: Number((meters / 1000).toFixed(2)), ...(arrival == null ? {} : { estimatedArrivalMinutes: Math.round(arrival), estimatedArrivalTime: this.formatArrivalTime(9, 0, arrival) }), routingMethod: path.routingMethod, reasonForOrder: `Stop #${orderedStops.length + 1}: priority-weighted nearest-neighbor sequencing; road distance calculated for this leg by ${path.algorithm}.` });
+      const distanceDescription = path.routingMethod === 'NETWORK_ROUTE'
+        ? `road distance calculated for this leg by ${path.algorithm}`
+        : `distance calculated using ${path.algorithm}`;
+      orderedStops.push({ sequence: orderedStops.length + 1, infrastructureId: stop.infrastructureId, infrastructureName: stop.infrastructureName || `Asset ${stop.infrastructureId}`, type: stop.type, location: stop.location, priorityScore: stop.priorityScore, priorityLevel: stop.priorityLevel, distanceFromPreviousKm: Number(legKm.toFixed(2)), cumulativeDistanceKm: Number((meters / 1000).toFixed(2)), ...(arrival == null ? {} : { estimatedArrivalMinutes: Math.round(arrival), estimatedArrivalTime: this.formatArrivalTime(9, 0, arrival) }), routingMethod: path.routingMethod, reasonForOrder: `Stop #${orderedStops.length + 1}: priority-weighted nearest-neighbor sequencing; ${distanceDescription}.` });
       // Maintenance inspection buffer is assumed and added only to network travel estimate.
       if (allNetwork) elapsed += 15;
       last = idx;

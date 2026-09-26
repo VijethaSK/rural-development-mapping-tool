@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import {
@@ -9,6 +9,21 @@ import {
 } from '../types/route';
 import { api, apiAuth } from '../api/client';
 import { useAuth } from '../store/auth';
+import {
+  candidateRequestPath,
+  isFiniteCoordinate,
+  panchayatsVisibleToUser,
+  resetRouteSelection,
+  resolveRouteOrigin,
+  routeMethodOverlayLabel,
+  shouldApplyCandidateResponse,
+  shouldApplyOptimizationResponse,
+} from '../utils/routeOptimizerScope';
+import type { RoutePanchayatOption } from '../utils/routeOptimizerScope';
+
+interface PanchayatOption extends RoutePanchayatOption {
+  centerCoord?: Coordinate | null;
+}
 
 // Custom icons
 const createStartIcon = () => {
@@ -41,9 +56,20 @@ const createNumberedStopIcon = (sequence: number, priorityLevel: string) => {
 
 export default function RouteOptimizationPage() {
   const { token, user } = useAuth();
+  const initialPanchayatId = new URLSearchParams(window.location.search).get('panchayatId') || '';
+  const [panchayats, setPanchayats] = useState<PanchayatOption[]>([]);
+  const [loadingPanchayats, setLoadingPanchayats] = useState<boolean>(true);
+  const [selectedPanchayatId, setSelectedPanchayatId] = useState<string>(initialPanchayatId);
+  const selectedPanchayatIdRef = useRef(initialPanchayatId);
+  const optimizationRequestVersionRef = useRef(0);
+  const visiblePanchayats = useMemo(
+    () => panchayatsVisibleToUser(panchayats, user?.panchayatId),
+    [panchayats, user?.panchayatId]
+  );
+  const selectedPanchayat = panchayats.find((item) => String(item._id) === selectedPanchayatId);
 
   // State
-  const [loadingCandidates, setLoadingCandidates] = useState<boolean>(true);
+  const [loadingCandidates, setLoadingCandidates] = useState<boolean>(Boolean(initialPanchayatId));
   const [optimizing, setOptimizing] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
@@ -54,7 +80,7 @@ export default function RouteOptimizationPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Configuration
-  const [startName, setStartName] = useState<string>('Panchayat center');
+  const [startName, setStartName] = useState<string>('Select a Panchayat');
   const [startCoord, setStartCoord] = useState<Coordinate | null>(null);
   const [priorityWeight, setPriorityWeight] = useState<number>(1.5);
   const [speedKmph, setSpeedKmph] = useState<number>(30);
@@ -62,44 +88,94 @@ export default function RouteOptimizationPage() {
   // Optimization Result
   const [result, setResult] = useState<RouteOptimizationResult | null>(null);
 
-  // 1. Fetch Candidates from Backend
+  // Load Panchayats through the existing scoped API. The backend remains authoritative.
   useEffect(() => {
-    setLoadingCandidates(true);
-    (token ? apiAuth<{ data: any[]; startLocation?: Coordinate | null; panchayatName?: string }>('/api/routes/candidates', token) : api<{ data: any[]; startLocation?: Coordinate | null; panchayatName?: string }>('/api/routes/candidates'))
+    let active = true;
+    setLoadingPanchayats(true);
+    (token ? apiAuth<PanchayatOption[]>('/panchayats', token) : api<PanchayatOption[]>('/panchayats'))
       .then((res) => {
-        const list: StopCandidate[] = (res.data || []).filter((item) => Number.isFinite(item.location?.lat) && Number.isFinite(item.location?.lng)).map((item) => ({
-          _id: item._id,
-          infrastructureId: item._id,
-          panchayatId: item.panchayatId,
-          name: item.name,
-          type: item.type,
-          condition: item.condition,
-          complaintsCount: item.complaintsCount,
-          populationServed: item.populationServed,
-          priorityScore: item.priorityScore ?? 50,
-          priorityLevel: item.priorityLevel ?? 'Medium',
-          location: item.location,
-        }));
-        setCandidates(list);
-        if (res.startLocation && Number.isFinite(res.startLocation.lat) && Number.isFinite(res.startLocation.lng)) {
-          setStartCoord(res.startLocation);
-          setStartName(`${res.panchayatName || 'Panchayat'} center`);
-        } else if (list[0]?.location) {
-          setStartCoord(list[0].location);
-          setStartName('Estimated origin at first available infrastructure');
-        }
-
-        // Pre-select top 3 priority items by default
-        const initialPanchayat = list[0]?.panchayatId;
-        const top3 = list.filter((c) => c.panchayatId === initialPanchayat).slice(0, 4).map((c) => c.infrastructureId);
-        setSelectedIds(new Set(top3));
+        if (active && Array.isArray(res)) setPanchayats(res);
       })
       .catch((err) => {
-        console.error('Failed to load candidate infrastructure:', err);
-        setError('Could not load candidate infrastructure for route planning.');
+        if (active) {
+          console.error('Failed to load Panchayats for route planning:', err);
+          setError('Could not load Panchayats for route planning.');
+        }
       })
-      .finally(() => setLoadingCandidates(false));
+      .finally(() => { if (active) setLoadingPanchayats(false); });
+    return () => { active = false; };
   }, [token]);
+
+  // 1. Fetch candidates only for an explicit Panchayat selection.
+  useEffect(() => {
+    const requestPath = candidateRequestPath(selectedPanchayatId);
+    if (!requestPath) {
+      setLoadingCandidates(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingCandidates(true);
+    setError(null);
+    setCandidates([]);
+    setSelectedIds(new Set());
+    setStartCoord(null);
+    setResult(null);
+    const request = token
+      ? apiAuth<{ data: any[]; startLocation?: Coordinate | null; panchayatName?: string }>(requestPath, token)
+      : api<{ data: any[]; startLocation?: Coordinate | null; panchayatName?: string }>(requestPath);
+    request
+      .then((res) => {
+        if (!active || !shouldApplyCandidateResponse(selectedPanchayatId, selectedPanchayatIdRef.current)) return;
+        const list: StopCandidate[] = (res.data || [])
+          .filter((item) => String(item.panchayatId) === selectedPanchayatId && isFiniteCoordinate(item.location))
+          .map((item) => ({
+            _id: item._id,
+            infrastructureId: item._id,
+            panchayatId: item.panchayatId,
+            name: item.name,
+            type: item.type,
+            condition: item.condition,
+            complaintsCount: item.complaintsCount,
+            populationServed: item.populationServed,
+            priorityScore: item.priorityScore ?? 50,
+            priorityLevel: item.priorityLevel ?? 'Medium',
+            location: item.location,
+          }));
+        setCandidates(list);
+        setSelectedIds(new Set());
+
+        const origin = resolveRouteOrigin(res.startLocation, res.panchayatName, list[0]?.location);
+        setStartCoord(origin?.coordinate || null);
+        setStartName(origin?.name || `${selectedPanchayat?.name || 'Selected Panchayat'} depot unavailable`);
+      })
+      .catch((err) => {
+        if (!active || !shouldApplyCandidateResponse(selectedPanchayatId, selectedPanchayatIdRef.current)) return;
+        console.error('Failed to load candidate infrastructure:', err);
+        setCandidates([]);
+        setError('Could not load candidates for this Panchayat. Check that it is available to your account.');
+      })
+      .finally(() => {
+        if (active && shouldApplyCandidateResponse(selectedPanchayatId, selectedPanchayatIdRef.current)) setLoadingCandidates(false);
+      });
+    return () => { active = false; };
+  }, [token, selectedPanchayatId]);
+
+  const handlePanchayatChange = (panchayatId: string) => {
+    selectedPanchayatIdRef.current = panchayatId;
+    optimizationRequestVersionRef.current += 1;
+    setSelectedPanchayatId(panchayatId);
+    const reset = resetRouteSelection();
+    setCandidates(reset.candidates);
+    setSelectedIds(reset.selectedIds);
+    setStartCoord(reset.startCoord);
+    setStartName(panchayatId ? 'Loading selected Panchayat depot…' : reset.startName);
+    setResult(reset.result);
+    setOptimizing(false);
+    setSaveSuccess(false);
+    setError(null);
+    setLoadingCandidates(Boolean(panchayatId));
+  };
 
   const toggleSelectStop = (id: string) => {
     setSelectedIds((prev) => {
@@ -133,12 +209,20 @@ export default function RouteOptimizationPage() {
 
     const selectedStops = candidates.filter((c) => selectedIds.has(c.infrastructureId));
     if (!startCoord) { setError('No valid Panchayat center or infrastructure coordinate is available for the route origin.'); setOptimizing(false); return; }
-    const panchayatId = selectedStops[0]?.panchayatId;
+    const panchayatId = selectedPanchayatId;
     if (!panchayatId || selectedStops.some((stop) => stop.panchayatId !== panchayatId)) {
       setError('Select infrastructure from one Panchayat for each route.');
       setOptimizing(false);
       return;
     }
+
+    const requestVersion = ++optimizationRequestVersionRef.current;
+    const isCurrentRequest = () => shouldApplyOptimizationResponse(
+      panchayatId,
+      selectedPanchayatIdRef.current,
+      requestVersion,
+      optimizationRequestVersionRef.current
+    );
 
     try {
       const payload = {
@@ -167,12 +251,14 @@ export default function RouteOptimizationPage() {
         ? await apiAuth<{ data: RouteOptimizationResult }>('/api/routes/optimize', token, { method: 'POST', body: JSON.stringify(payload) })
         : await api<{ data: RouteOptimizationResult }>('/api/routes/optimize', { method: 'POST', body: JSON.stringify(payload) });
 
-      setResult(res.data);
+      if (isCurrentRequest()) setResult(res.data);
     } catch (err: any) {
-      console.error('Optimization error:', err);
-      setError(err.message || 'Route optimization failed.');
+      if (isCurrentRequest()) {
+        console.error('Optimization error:', err);
+        setError(err.message || 'Route optimization failed.');
+      }
     } finally {
-      setOptimizing(false);
+      if (isCurrentRequest()) setOptimizing(false);
     }
   };
 
@@ -180,7 +266,7 @@ export default function RouteOptimizationPage() {
   const handleSaveRoute = async () => {
     if (!result) return;
     const selectedStops = candidates.filter((c) => selectedIds.has(c.infrastructureId));
-    const panchayatId = selectedStops[0]?.panchayatId;
+    const panchayatId = selectedPanchayatId;
     if (!token || !panchayatId || !['admin', 'pdo'].includes(user?.role || '')) {
       setError('Sign in as an administrator or PDO in the selected Panchayat to save a route.');
       return;
@@ -276,9 +362,9 @@ export default function RouteOptimizationPage() {
 
           <button
             onClick={handleOptimize}
-            disabled={optimizing || selectedIds.size === 0}
+            disabled={!selectedPanchayatId || optimizing || selectedIds.size === 0}
             className={`px-5 py-2 text-sm font-bold rounded-lg text-white transition shadow-md flex items-center gap-2 ${
-              optimizing || selectedIds.size === 0
+              !selectedPanchayatId || optimizing || selectedIds.size === 0
                 ? 'bg-slate-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
             }`}
@@ -287,6 +373,28 @@ export default function RouteOptimizationPage() {
             <span>{optimizing ? 'Optimizing...' : 'Generate Route'}</span>
           </button>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <label htmlFor="route-panchayat" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+          Panchayat for this route
+        </label>
+        <select
+          id="route-panchayat"
+          value={selectedPanchayatId}
+          onChange={(event) => handlePanchayatChange(event.target.value)}
+          disabled={loadingPanchayats}
+          className="w-full max-w-xl rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900"
+        >
+          <option value="">{loadingPanchayats ? 'Loading Panchayats…' : 'Select Panchayat'}</option>
+          {visiblePanchayats.map((panchayat) => (
+            <option key={panchayat._id} value={panchayat._id}>{panchayat.name}</option>
+          ))}
+          {selectedPanchayatId && !visiblePanchayats.some((item) => String(item._id) === selectedPanchayatId) && (
+            <option value={selectedPanchayatId}>Panchayat unavailable to this account</option>
+          )}
+        </select>
+        {selectedPanchayat && <div className="mt-2 text-xs text-slate-500">Candidates and depot are scoped to {selectedPanchayat.name}.</div>}
       </div>
 
       {error && (
@@ -384,8 +492,12 @@ export default function RouteOptimizationPage() {
               </div>
             </div>
 
-            {loadingCandidates ? (
+            {!selectedPanchayatId ? (
+              <div className="p-8 text-center text-xs text-slate-500">Select a Panchayat to load route candidates.</div>
+            ) : loadingCandidates ? (
               <div className="p-8 text-center text-xs text-slate-500">Loading infrastructure assets...</div>
+            ) : candidates.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500">No infrastructure with usable point coordinates is available for this Panchayat.</div>
             ) : (
               <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
                 {candidates.map((cand) => {
@@ -493,6 +605,11 @@ export default function RouteOptimizationPage() {
 
           {/* Interactive GIS Map */}
           <div className="relative h-[420px] rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md">
+            {!startCoord ? (
+              <div className="flex h-full items-center justify-center bg-slate-50 p-6 text-center text-sm text-slate-500 dark:bg-slate-900">
+                {selectedPanchayatId ? 'No depot center or candidate location is available for this Panchayat.' : 'Select a Panchayat to view its route map.'}
+              </div>
+            ) : (
             <MapContainer
               center={mapCenter}
               zoom={13}
@@ -555,10 +672,11 @@ export default function RouteOptimizationPage() {
                 />
               )}
             </MapContainer>
+            )}
 
             {/* Algorithm Overlay Pill */}
             <div className="absolute bottom-3 left-3 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3 py-1.5 rounded-lg shadow border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-600 dark:text-slate-300">
-              ⚡ Dijkstra per leg | Priority-weighted nearest-neighbor ordering | 2-opt heuristic
+              ⚡ {routeMethodOverlayLabel(result)}
             </div>
           </div>
 

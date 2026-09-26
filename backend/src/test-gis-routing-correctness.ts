@@ -73,6 +73,7 @@ const run = async () => {
   const two = await MultiStopOptimizer.optimizeRoute(coord(77.6001), [stop('a', 77.602), stop('b', 77.604)], {}, provider);
   assert.equal(two.stopsCount, 2);
   assert.equal(two.routingMethod, 'NETWORK_ROUTE');
+  assert.ok(two.orderedStops[0].reasonForOrder.includes('road distance calculated for this leg by Dijkstra'));
   const multiple = await MultiStopOptimizer.optimizeRoute(coord(77.6001), [stop('a', 77.602), stop('b', 77.604), stop('c', 77.608)], {}, provider);
   assert.equal(multiple.stopsCount, 3);
   const duplicates = await MultiStopOptimizer.optimizeRoute(coord(77.6001), [stop('a', 77.602), stop('a', 77.602), stop('other-asset', 77.602)], {}, provider);
@@ -88,6 +89,8 @@ const run = async () => {
   const noNetwork = await MultiStopOptimizer.optimizeRoute(coord(77.6), [stop('fallback', 77.61)], {}, new DijkstraRoadGraphProvider(new RoadGraph()));
   assert.equal(noNetwork.routingMethod, 'STRAIGHT_LINE_FALLBACK');
   assert.equal(noNetwork.estimatedDurationMinutes, null, 'fallback leg never claims a travel-time estimate');
+  assert.ok(noNetwork.orderedStops[0].reasonForOrder.includes('distance calculated using Straight-line Haversine fallback'));
+  assert.equal(noNetwork.orderedStops[0].reasonForOrder.includes('road distance'), false, 'fallback distance is not described as road distance');
   await assert.rejects(() => MultiStopOptimizer.optimizeRoute(coord(77.6), Array.from({ length: MAX_ROUTE_STOPS + 1 }, (_, i) => stop(String(i), 77.6)), {}, provider), /at most/);
   console.log('GIS routing correctness tests passed.');
 };
