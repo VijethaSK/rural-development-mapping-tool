@@ -1,5 +1,6 @@
 import { Coordinate, StopCandidate, OrderedStop, RouteOptimizationOptions, RouteOptimizationResult, IRoutingProvider, RoutingMethod } from './types.js';
 import { getRoutingProvider } from './routingProvider.js';
+import { RoutingUnreachableError } from './routingErrors.js';
 
 export const MAX_ROUTE_STOPS = 50;
 
@@ -131,7 +132,8 @@ export class MultiStopOptimizer {
     // Geometry is requested only for the selected order, not for every matrix pair.
     const orderedPoints = [start, ...order.map(index => stops[index - 1].location)];
     const route = await provider.getRoute(orderedPoints);
-    if (!route.reachable || route.distanceMeters === null || route.legs.length !== order.length) {
+    if (!route.reachable) throw new RoutingUnreachableError();
+    if (route.distanceMeters === null || route.legs.length !== order.length) {
       throw new Error('Routing provider could not return geometry for the selected reachable stop sequence.');
     }
 

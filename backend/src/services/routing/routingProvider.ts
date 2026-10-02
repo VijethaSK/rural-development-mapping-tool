@@ -11,7 +11,7 @@ import { DijkstraShortestPath } from './dijkstra.js';
 import { Road } from '../../models/Infrastructure.js';
 import { env } from '../../config/env.js';
 import { parseRoutingConfiguration, type RoutingConfiguration } from '../../config/routing.js';
-import { RoutingProviderUnavailableError } from './routingErrors.js';
+import { OsrmRoutingProvider } from './osrmRoutingProvider.js';
 
 export interface RoadDocumentForRouting {
   _id?: unknown;
@@ -216,9 +216,8 @@ export class DijkstraRoadGraphProvider implements IRoutingProvider {
 }
 
 /**
- * Service Abstraction Factory.
- * If external providers (e.g. OSRM, Valhalla) are configured in future,
- * they can be swapped here without touching route optimization logic.
+ * Service abstraction factory. Provider selection is configuration; each
+ * returned provider reports the engine that actually supplied its metrics.
  */
 export async function getRoutingProvider(
   panchayatId?: string,
@@ -235,7 +234,8 @@ export async function getRoutingProvider(
     configuration.osrmBaseUrl
   );
   if (selectedConfiguration.providerSelection === 'OSRM') {
-    throw new RoutingProviderUnavailableError('OSRM routing is selected, but its provider adapter is not implemented yet.');
+    // parseRoutingConfiguration guarantees this value for OSRM selection.
+    return new OsrmRoutingProvider(selectedConfiguration.osrmBaseUrl!);
   }
 
   const provider = new DijkstraRoadGraphProvider(customGraph);

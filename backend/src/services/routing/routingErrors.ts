@@ -28,6 +28,17 @@ export class RoutingProviderTimeoutError extends RoutingProviderError {
   }
 }
 
+/** A valid request for which the selected route sequence has no network path. */
+export class RoutingUnreachableError extends Error {
+  public readonly errorCode = 'ROUTE_UNREACHABLE';
+  public readonly statusCode = 422;
+
+  constructor() {
+    super('The selected stops cannot be connected by the configured routing network.');
+    this.name = 'RoutingUnreachableError';
+  }
+}
+
 /** Preserve existing validation statuses while mapping provider failures as gateway errors. */
 export function getRoutingErrorStatusCode(error: unknown, fallbackStatusCode = 400): number {
   if (error instanceof RoutingProviderError) return error.statusCode;

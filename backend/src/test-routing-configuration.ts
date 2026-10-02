@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { parseRoutingConfiguration } from './config/routing.js';
 import { RoadGraph } from './services/routing/graph.js';
 import { getRoutingProvider, DijkstraRoadGraphProvider } from './services/routing/routingProvider.js';
+import { OsrmRoutingProvider } from './services/routing/osrmRoutingProvider.js';
 import {
   getRoutingErrorStatusCode,
   RoutingProviderTimeoutError,
@@ -34,10 +35,9 @@ const run = async () => {
     () => getRoutingProvider(undefined, undefined, { providerSelection: 'OSRM' }),
     /OSRM_BASE_URL is required/
   );
-  await assert.rejects(
-    () => getRoutingProvider(undefined, undefined, { providerSelection: 'OSRM', osrmBaseUrl: 'https://routing.example' }),
-    (error: unknown) => error instanceof RoutingProviderUnavailableError && error.statusCode === 503
-  );
+  const osrmProvider = await getRoutingProvider(undefined, undefined, { providerSelection: 'OSRM', osrmBaseUrl: 'https://routing.example' });
+  assert.ok(osrmProvider instanceof OsrmRoutingProvider, 'explicit OSRM selection constructs the OSRM adapter without a live request');
+  assert.equal(osrmProvider.provider, 'OSRM', 'configured OSRM does not silently select INTERNAL');
   assert.equal(getRoutingErrorStatusCode(new RoutingProviderUnavailableError()), 503);
   assert.equal(getRoutingErrorStatusCode(new RoutingProviderTimeoutError()), 504);
   assert.equal(getRoutingErrorStatusCode(new Error('invalid route options')), 400, 'ordinary validation errors remain client errors');
