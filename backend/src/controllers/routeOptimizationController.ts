@@ -8,6 +8,7 @@ import { User } from '../models/User.js';
 import mongoose from 'mongoose';
 import { Panchayat } from '../models/Panchayat.js';
 import { assertPanchayatAccess, panchayatFilter, resolvePanchayatScope } from '../middleware/panchayatScope.js';
+import { getRoutingErrorStatusCode } from '../services/routing/routingErrors.js';
 
 export class RouteOptimizationController {
   /**
@@ -151,7 +152,7 @@ export class RouteOptimizationController {
       });
     } catch (err: any) {
       console.error('Route optimization error:', err);
-      res.status(err.statusCode || 400).json({ error: err.message || 'Route optimization failed.' });
+      res.status(getRoutingErrorStatusCode(err)).json({ error: err.message || 'Route optimization failed.', ...(err.errorCode ? { errorCode: err.errorCode } : {}) });
     }
   }
 
@@ -280,7 +281,7 @@ export class RouteOptimizationController {
       });
     } catch (err: any) {
       console.error('Save route error:', err);
-      res.status(err.statusCode || 400).json({ error: err.message || 'Failed to save route.' });
+      res.status(getRoutingErrorStatusCode(err)).json({ error: err.message || 'Failed to save route.', ...(err.errorCode ? { errorCode: err.errorCode } : {}) });
     }
   }
 

@@ -371,3 +371,10 @@ The source records cannot appear on a map, be routed, or support geographic gap 
 - **Verification:** Backend typecheck/build PASS; routing contract tests PASS for changed order, unreachable original sequence, fallback matrix with network final legs, and non-like-for-like comparison; existing GIS routing and routes tests PASS. Frontend typecheck/build PASS (existing Baseline/Browserslist and bundle-size warnings). `git diff --check` run after final edits.
 - **Limitations:** If matrix path methods differ, comparison fields are omitted and the UI shows “Comparison unavailable.” No browser/live network routing test was run.
 - **Safety:** No database/schema operation, OSRM request, seed, migration, commit, push, or deployment occurred.
+
+## Phase 2.1 — routing provider configuration and typed errors — 2026-10-02
+
+- **Status:** Implemented and backend-tested. Provider selection defaults to `INTERNAL`. `OSRM` requires a valid `OSRM_BASE_URL`, but the adapter is not implemented in this phase; the factory returns a typed 503 error for selected OSRM requests. Timeout failures have a typed 504 error for the future adapter. The route result provider identity remains the provider actually used, separate from configured selection.
+- **Files:** `backend/src/config/routing.ts`, `backend/src/config/env.ts`, `backend/src/services/routing/routingErrors.ts`, `backend/src/services/routing/routingProvider.ts`, `backend/src/controllers/routeOptimizationController.ts`, `backend/src/test-routing-configuration.ts`, and both progress documents.
+- **Verification:** Config/error test, provider contract test, GIS routing test, and route optimizer test PASS; backend typecheck/build PASS; `git diff --check` run after changes.
+- **Limitations:** No OSRM adapter or requests. OSRM-selected routing is unavailable until Phase 2 adapter work. No database, schema, frontend, package, deployment environment, or source-data changes.

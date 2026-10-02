@@ -9,6 +9,9 @@ import {
 import { RoadGraph, RoadLineInput } from './graph.js';
 import { DijkstraShortestPath } from './dijkstra.js';
 import { Road } from '../../models/Infrastructure.js';
+import { env } from '../../config/env.js';
+import { parseRoutingConfiguration, type RoutingConfiguration } from '../../config/routing.js';
+import { RoutingProviderUnavailableError } from './routingErrors.js';
 
 export interface RoadDocumentForRouting {
   _id?: unknown;
@@ -219,8 +222,22 @@ export class DijkstraRoadGraphProvider implements IRoutingProvider {
  */
 export async function getRoutingProvider(
   panchayatId?: string,
-  customGraph?: RoadGraph
+  customGraph?: RoadGraph,
+  providerConfiguration?: RoutingConfiguration
 ): Promise<IRoutingProvider> {
+  // A supplied graph is the existing explicit Dijkstra/test path. Production
+  // selection remains server-side and does not alter reported provider identity.
+  const configuration = providerConfiguration ?? (customGraph
+    ? { providerSelection: 'INTERNAL' as const }
+    : { providerSelection: env.ROUTING_PROVIDER, osrmBaseUrl: env.OSRM_BASE_URL });
+  const selectedConfiguration = parseRoutingConfiguration(
+    configuration.providerSelection,
+    configuration.osrmBaseUrl
+  );
+  if (selectedConfiguration.providerSelection === 'OSRM') {
+    throw new RoutingProviderUnavailableError('OSRM routing is selected, but its provider adapter is not implemented yet.');
+  }
+
   const provider = new DijkstraRoadGraphProvider(customGraph);
   if (!customGraph) {
     await provider.loadFromDatabase(panchayatId);
