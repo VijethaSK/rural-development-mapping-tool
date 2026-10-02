@@ -200,6 +200,8 @@ export class DijkstraShortestPath {
         coordinates: [[source.lng, source.lat]],
         reachable: true,
         algorithm: 'Dijkstra',
+        provider: 'INTERNAL',
+        method: 'DIJKSTRA',
         routingMethod: 'NETWORK_ROUTE',
         fallbackUsed: false
       };
@@ -217,6 +219,8 @@ export class DijkstraShortestPath {
         ],
         reachable: true,
         algorithm: 'Straight-line Haversine fallback',
+        provider: 'INTERNAL',
+        method: 'HAVERSINE_FALLBACK',
         routingMethod: 'STRAIGHT_LINE_FALLBACK',
         fallbackUsed: true
       };
@@ -238,6 +242,8 @@ export class DijkstraShortestPath {
         ],
         reachable: true,
         algorithm: 'Straight-line Haversine fallback',
+        provider: 'INTERNAL',
+        method: 'HAVERSINE_FALLBACK',
         routingMethod: 'STRAIGHT_LINE_FALLBACK',
         fallbackUsed: true
       };
@@ -288,6 +294,8 @@ export class DijkstraShortestPath {
         coordinates: [],
         reachable: false,
         algorithm: 'Dijkstra',
+        provider: 'INTERNAL',
+        method: 'DIJKSTRA',
         routingMethod: 'NETWORK_ROUTE',
         fallbackUsed: false,
         snapDistanceMeters: { source: snapSource.distanceMeters, target: snapTarget.distanceMeters }
@@ -301,6 +309,8 @@ export class DijkstraShortestPath {
       coordinates: dijkstraRes.geometry,
       reachable: true,
       algorithm: 'Dijkstra',
+      provider: 'INTERNAL',
+      method: 'DIJKSTRA',
       routingMethod: 'NETWORK_ROUTE',
       fallbackUsed: false,
       snapDistanceMeters: { source: snapSource.distanceMeters, target: snapTarget.distanceMeters }

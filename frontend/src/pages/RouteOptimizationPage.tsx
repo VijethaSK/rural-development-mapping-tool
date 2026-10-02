@@ -330,15 +330,15 @@ export default function RouteOptimizationPage() {
               Phase 5 Routing
             </span>
             <span className="text-xs text-slate-500">
-              Level 1 Dijkstra + Level 2 Priority 2-Opt Ordering
+              Network routing + priority-weighted 2-opt ordering
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
             Maintenance Route Optimization
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
-            Solves multi-stop rural field operations by balancing Dijkstra shortest path travel
-            with high-urgency priority dispatching.
+            Plans multi-stop rural field operations using the configured routing provider and balances
+            its route metrics with high-urgency priority dispatching.
           </p>
         </div>
 
@@ -564,7 +564,7 @@ export default function RouteOptimizationPage() {
                   {result.totalDistanceKm} km
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  Original: {result.originalDistanceKm ?? result.totalDistanceKm} km
+                  Original: {result.originalDistanceKm == null ? 'comparison unavailable' : `${result.originalDistanceKm} km`}
                 </div>
               </div>
 
@@ -589,16 +589,32 @@ export default function RouteOptimizationPage() {
                   Route Optimization
                 </div>
                 <div className="text-xl font-extrabold text-emerald-800 dark:text-emerald-300 mt-0.5">
-                  {result.savingsPercent ?? 0}% saved
+                  {result.savingsPercent == null
+                    ? 'Comparison unavailable'
+                    : result.savingsPercent > 0
+                      ? `${result.savingsPercent}% saved`
+                      : result.savingsPercent < 0
+                        ? `${Math.abs(result.savingsPercent)}% longer`
+                        : 'No distance change'}
                 </div>
-              <div className="text-[10px] text-emerald-600/80">
-                  {result.distanceSavingsKm ?? 0} km detour reduction
+                <div className="text-[10px] text-emerald-600/80">
+                  {result.distanceSavingsKm == null
+                    ? 'Distance comparison unavailable'
+                    : result.distanceSavingsKm > 0
+                      ? `${result.distanceSavingsKm} km detour reduction`
+                      : result.distanceSavingsKm < 0
+                        ? `${Math.abs(result.distanceSavingsKm)} km longer than original order`
+                        : 'No distance reduction'}
                 </div>
               </div>
             </div>
           )}
           {result && <div className={`rounded-lg border p-3 text-sm ${result.fallbackUsed ? 'border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200' : 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200'}`}>
-            <strong>{result.routingMethod}</strong>{result.fallbackUsed ? ' — straight-line distance is shown for fallback legs; it is not road distance and has no travel-time estimate.' : ' — legs use the stored road graph.'}
+            <strong>{result.routingMethod}</strong>{result.fallbackUsed
+              ? result.orderedStops.some((stop) => stop.method === 'HAVERSINE_FALLBACK')
+                ? ' — straight-line fallback distance is shown for fallback legs; it is not road distance and has no travel-time estimate.'
+                : ' — straight-line fallback metrics affected stop ordering; displayed route legs use the routing provider.'
+              : ` — route legs use ${result.provider || 'the configured'} routing provider.`}
             {result.unreachableStops.length > 0 && <div className="mt-2">Unreachable stops excluded from route: {result.unreachableStops.map(s => s.infrastructureName).join(', ')}.</div>}
             <div className="mt-1 text-xs opacity-80">{result.algorithm.description}</div>
           </div>}
@@ -659,7 +675,7 @@ export default function RouteOptimizationPage() {
                 </Marker>
               ))}
 
-              {/* Optimized Dijkstra Route Polyline */}
+              {/* Provider-returned route geometry */}
               {routePolylineCoords.length > 0 && (
                 <Polyline
                   positions={routePolylineCoords}

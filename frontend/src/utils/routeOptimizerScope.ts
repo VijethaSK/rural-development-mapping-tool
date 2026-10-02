@@ -1,4 +1,4 @@
-import type { Coordinate } from '../types/route';
+import type { Coordinate, RoutingMethod, RoutingProviderId } from '../types/route';
 
 export interface RoutePanchayatOption {
   _id: string;
@@ -37,22 +37,37 @@ export type RouteDisplayMethod = 'NETWORK_ROUTE' | 'STRAIGHT_LINE_FALLBACK';
 export interface RouteDisplaySummary {
   routingMethod: RouteDisplayMethod;
   fallbackUsed: boolean;
-  orderedStops: readonly { routingMethod: RouteDisplayMethod }[];
+  provider?: RoutingProviderId | null;
+  methodsUsed?: readonly RoutingMethod[];
+  matrixFallbackUsed?: boolean;
+  orderedStops: readonly { routingMethod: RouteDisplayMethod; provider?: RoutingProviderId; method?: RoutingMethod }[];
 }
 
 export function routeMethodOverlayLabel(result: RouteDisplaySummary | null): string {
   const base = 'Priority-weighted nearest-neighbor ordering | 2-opt heuristic';
   if (!result) return `Routing method pending | ${base}`;
 
-  const methods = new Set(result.orderedStops.map((stop) => stop.routingMethod));
-  const hasNetwork = methods.has('NETWORK_ROUTE');
-  const hasFallback = methods.has('STRAIGHT_LINE_FALLBACK');
+  const methods = new Set<RoutingMethod>([
+    ...(result.methodsUsed || []),
+    ...result.orderedStops.flatMap((stop) => stop.method ? [stop.method] : [])
+  ]);
+  const hasLegacyNetwork = result.orderedStops.some((stop) => stop.routingMethod === 'NETWORK_ROUTE');
+  const hasNetwork = methods.has('DIJKSTRA') || methods.has('OSRM_ROUTE') || hasLegacyNetwork;
+  const hasFallback = methods.has('HAVERSINE_FALLBACK') || result.orderedStops.some((stop) => stop.routingMethod === 'STRAIGHT_LINE_FALLBACK');
+  const hasFallbackLeg = result.orderedStops.some((stop) => stop.method === 'HAVERSINE_FALLBACK' || stop.routingMethod === 'STRAIGHT_LINE_FALLBACK');
+  const provider = result.provider || result.orderedStops.find((stop) => stop.provider)?.provider;
+  const networkLabel = methods.has('OSRM_ROUTE') || provider === 'OSRM'
+    ? 'OSRM road route'
+    : methods.has('DIJKSTRA') || provider === 'INTERNAL' || hasLegacyNetwork
+      ? 'Dijkstra per leg'
+      : 'Network route';
 
-  if (hasNetwork && hasFallback) return `Mixed network and straight-line fallback | ${base}`;
+  if (hasNetwork && hasFallback && result.matrixFallbackUsed && !hasFallbackLeg) return `${networkLabel}; Haversine matrix fallback affected ordering | ${base}`;
+  if (hasNetwork && hasFallback) return `Mixed ${networkLabel.toLowerCase()} and straight-line fallback | ${base}`;
   if (hasFallback || result.fallbackUsed || result.routingMethod === 'STRAIGHT_LINE_FALLBACK') {
     return `Straight-line fallback | ${base}`;
   }
-  if (hasNetwork) return `Dijkstra per leg | ${base}`;
+  if (hasNetwork) return `${networkLabel} | ${base}`;
   return `No route legs | ${base}`;
 }
 

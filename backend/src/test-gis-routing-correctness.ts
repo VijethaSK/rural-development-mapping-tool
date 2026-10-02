@@ -16,6 +16,8 @@ const center = [...intersection.getNodes().values()].find(n => Math.abs(n.coord.
 assert.ok(center && center.edges.length === 4, 'intersection node connects all four split road arms');
 const crossPath = DijkstraShortestPath.findShortestPath(intersection, coord(77.6005), coord(77.6015));
 assert.equal(crossPath.reachable, true);
+assert.equal(crossPath.provider, 'INTERNAL');
+assert.equal(crossPath.method, 'DIJKSTRA');
 assert.equal(crossPath.routingMethod, 'NETWORK_ROUTE');
 assert.ok(crossPath.coordinates.every(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat)), 'path geometry retains [longitude, latitude] order');
 assert.ok(crossPath.coordinates.some(([lng, lat]) => Math.abs(lng - 77.601) < 1e-8 && Math.abs(lat - 12.9) < 1e-8));
@@ -39,6 +41,8 @@ assert.equal(deadEndPath.reachable, true, 'dead-end connected line remains routa
 const emptyGraph = new RoadGraph();
 const fallback = DijkstraShortestPath.findShortestPath(emptyGraph, coord(77.6), coord(77.601));
 assert.equal(fallback.routingMethod, 'STRAIGHT_LINE_FALLBACK');
+assert.equal(fallback.provider, 'INTERNAL');
+assert.equal(fallback.method, 'HAVERSINE_FALLBACK');
 assert.equal(fallback.fallbackUsed, true);
 
 const sourcePointOnlyRoads = roadDocumentsToLineInputs([{
@@ -73,7 +77,9 @@ const run = async () => {
   const two = await MultiStopOptimizer.optimizeRoute(coord(77.6001), [stop('a', 77.602), stop('b', 77.604)], {}, provider);
   assert.equal(two.stopsCount, 2);
   assert.equal(two.routingMethod, 'NETWORK_ROUTE');
-  assert.ok(two.orderedStops[0].reasonForOrder.includes('road distance calculated for this leg by Dijkstra'));
+  assert.equal(two.provider, 'INTERNAL');
+  assert.ok(two.methodsUsed.includes('DIJKSTRA'));
+  assert.ok(two.orderedStops[0].reasonForOrder.includes('network distance calculated by DIJKSTRA'));
   const multiple = await MultiStopOptimizer.optimizeRoute(coord(77.6001), [stop('a', 77.602), stop('b', 77.604), stop('c', 77.608)], {}, provider);
   assert.equal(multiple.stopsCount, 3);
   const duplicates = await MultiStopOptimizer.optimizeRoute(coord(77.6001), [stop('a', 77.602), stop('a', 77.602), stop('other-asset', 77.602)], {}, provider);

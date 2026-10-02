@@ -3,6 +3,9 @@ export interface Coordinate {
   lng: number;
 }
 
+export type RoutingProviderId = 'INTERNAL' | 'OSRM';
+export type RoutingMethod = 'DIJKSTRA' | 'OSRM_TABLE' | 'OSRM_ROUTE' | 'HAVERSINE_FALLBACK';
+
 export interface StopCandidate {
   _id?: string;
   infrastructureId: string;
@@ -26,10 +29,13 @@ export interface OrderedStop {
   priorityScore: number;
   priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low';
   distanceFromPreviousKm: number;
+  durationSeconds: number | null;
   cumulativeDistanceKm: number;
   estimatedArrivalMinutes?: number;
   estimatedArrivalTime?: string;
   routingMethod: 'NETWORK_ROUTE' | 'STRAIGHT_LINE_FALLBACK';
+  provider: RoutingProviderId;
+  method: RoutingMethod;
   reasonForOrder: string;
 }
 
@@ -42,6 +48,9 @@ export interface RouteOptimizationResult {
   totalDistanceKm: number;
   totalDistanceMeters: number;
   estimatedDurationMinutes: number | null;
+  provider: RoutingProviderId | null;
+  methodsUsed: RoutingMethod[];
+  matrixFallbackUsed: boolean;
   routingMethod: 'NETWORK_ROUTE' | 'STRAIGHT_LINE_FALLBACK';
   fallbackUsed: boolean;
   unreachableStops: Array<{ infrastructureId: string; infrastructureName: string; reason: string }>;
@@ -51,7 +60,8 @@ export interface RouteOptimizationResult {
   distanceSavingsKm?: number;
   savingsPercent?: number;
   algorithm: {
-    shortestPath: 'Dijkstra';
+    /** Present only on legacy-compatible pure internal Dijkstra results. */
+    shortestPath?: 'Dijkstra';
     ordering: 'Priority-Weighted Nearest Neighbor';
     improvement: '2-opt';
     description: string;

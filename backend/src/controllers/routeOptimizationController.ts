@@ -135,7 +135,7 @@ export class RouteOptimizationController {
         }
       }
 
-      // Execute Level 1 (Dijkstra) & Level 2 (Priority Nearest-Neighbor + 2-opt)
+      // Execute provider-backed routing metrics & priority nearest-neighbor + 2-opt ordering.
       const result = await MultiStopOptimizer.optimizeRoute(
         startLocation,
         candidates,
@@ -247,7 +247,9 @@ export class RouteOptimizationController {
           coordinates: [stop.location.lng, stop.location.lat]
         },
         legDistanceMeters: Math.round(stop.distanceFromPreviousKm * 1000),
-        legDurationSeconds: Math.round((stop.distanceFromPreviousKm / routeSpeed) * 3600),
+        legDurationSeconds: stop.durationSeconds == null
+          ? Math.round((stop.distanceFromPreviousKm / routeSpeed) * 3600)
+          : Math.round(stop.durationSeconds),
         priorityScore: stop.priorityScore
       }));
 

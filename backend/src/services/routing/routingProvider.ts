@@ -2,7 +2,9 @@ import {
   Coordinate,
   ShortestPathResult,
   DistanceMatrixResult,
-  IRoutingProvider
+  IRoutingProvider,
+  ProviderRouteResult,
+  RoutingMethod
 } from './types.js';
 import { RoadGraph, RoadLineInput } from './graph.js';
 import { DijkstraShortestPath } from './dijkstra.js';
@@ -65,6 +67,7 @@ export function roadDocumentsToLineInputs(roads: readonly RoadDocumentForRouting
  */
 export class DijkstraRoadGraphProvider implements IRoutingProvider {
   public readonly name = 'Dijkstra Road Graph Engine';
+  public readonly provider = 'INTERNAL' as const;
   private graph: RoadGraph;
 
   constructor(graph?: RoadGraph) {
@@ -95,62 +98,116 @@ export class DijkstraRoadGraphProvider implements IRoutingProvider {
     end: Coordinate
   ): Promise<ShortestPathResult> {
     const result = DijkstraShortestPath.findShortestPath(this.graph, start, end);
-    return result;
+    return {
+      ...result,
+      durationSeconds: null,
+      provider: this.provider,
+      method: result.fallbackUsed ? 'HAVERSINE_FALLBACK' : 'DIJKSTRA'
+    };
   }
 
   /**
-   * Efficiently compute N x N pairwise shortest paths and distance matrix.
+   * Compute a directed N x N matrix. This internal graph is bidirectional,
+   * but matrix consumers must not assume other providers are symmetric.
    */
   public async getDistanceMatrix(points: Coordinate[]): Promise<DistanceMatrixResult> {
     const n = points.length;
-    const distancesMeters: number[][] = Array.from({ length: n }, () =>
-      new Array(n).fill(0)
-    );
-    const paths: ShortestPathResult[][] = Array.from({ length: n }, () =>
-      new Array(n)
-    );
+    const matrix: DistanceMatrixResult['matrix'] = Array.from({ length: n }, () => new Array(n));
+    const methods = new Set<RoutingMethod>();
+    let fallbackUsed = false;
 
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
         if (i === j) {
-          distancesMeters[i][j] = 0;
-          paths[i][j] = {
-            source: points[i],
-            target: points[j],
-            distanceMeters: 0,
-            coordinates: [[points[i].lng, points[i].lat]],
+          matrix[i][j] = {
             reachable: true,
-            algorithm: 'Dijkstra',
-            routingMethod: 'NETWORK_ROUTE',
+            distanceMeters: 0,
+            durationSeconds: 0,
+            provider: this.provider,
+            method: 'DIJKSTRA',
             fallbackUsed: false
           };
+          methods.add('DIJKSTRA');
         } else if (j > i) {
-          // Compute forward path
           const pathRes = await this.findShortestPath(points[i], points[j]);
-          distancesMeters[i][j] = pathRes.distanceMeters;
-          paths[i][j] = pathRes;
-
-          // For bidirectional road graphs, reverse path for [j][i]
-          distancesMeters[j][i] = pathRes.distanceMeters;
-          paths[j][i] = {
-            source: points[j],
-            target: points[i],
-            distanceMeters: pathRes.distanceMeters,
-            coordinates: [...pathRes.coordinates].reverse(),
-            reachable: pathRes.reachable,
-            algorithm: pathRes.algorithm,
-            routingMethod: pathRes.routingMethod,
-            fallbackUsed: pathRes.fallbackUsed,
-            snapDistanceMeters: pathRes.snapDistanceMeters
+          const distanceMeters = pathRes.reachable && Number.isFinite(pathRes.distanceMeters)
+            ? pathRes.distanceMeters
+            : null;
+          matrix[i][j] = {
+            reachable: distanceMeters !== null,
+            distanceMeters,
+            durationSeconds: null,
+            provider: pathRes.provider,
+            method: pathRes.method,
+            fallbackUsed: pathRes.fallbackUsed
           };
+          matrix[j][i] = {
+            reachable: distanceMeters !== null,
+            distanceMeters,
+            durationSeconds: null,
+            provider: pathRes.provider,
+            method: pathRes.method,
+            fallbackUsed: pathRes.fallbackUsed
+          };
+          methods.add(pathRes.method);
+          fallbackUsed ||= pathRes.fallbackUsed;
         }
       }
     }
 
     return {
       points,
-      distancesMeters,
-      paths
+      matrix,
+      provider: this.provider,
+      methodsUsed: [...methods],
+      fallbackUsed
+    };
+  }
+
+  /** Build geometry only for the final selected order, not for every matrix pair. */
+  public async getRoute(orderedPoints: Coordinate[]): Promise<ProviderRouteResult> {
+    const legs: ShortestPathResult[] = [];
+    const coordinates: [number, number][] = [];
+    const methods = new Set<RoutingMethod>();
+    let distanceMeters = 0;
+    let totalDurationSeconds = 0;
+    let hasDurationForEveryLeg = true;
+    let reachable = true;
+    let fallbackUsed = false;
+
+    for (let i = 0; i < orderedPoints.length - 1; i++) {
+      const leg = await this.findShortestPath(orderedPoints[i], orderedPoints[i + 1]);
+      legs.push(leg);
+      methods.add(leg.method);
+      fallbackUsed ||= leg.fallbackUsed;
+      if (!leg.reachable || !Number.isFinite(leg.distanceMeters)) {
+        reachable = false;
+        continue;
+      }
+      distanceMeters += leg.distanceMeters;
+      if (leg.durationSeconds == null) hasDurationForEveryLeg = false;
+      else totalDurationSeconds += leg.durationSeconds;
+      if (leg.coordinates.length) {
+        coordinates.push(...(coordinates.length ? leg.coordinates.slice(1) : leg.coordinates));
+      }
+    }
+
+    if (orderedPoints.length === 1) {
+      coordinates.push([orderedPoints[0].lng, orderedPoints[0].lat]);
+      methods.add('DIJKSTRA');
+    } else if (orderedPoints.length === 0) {
+      methods.add('DIJKSTRA');
+    }
+
+    return {
+      reachable,
+      geometry: { type: 'LineString', coordinates },
+      distanceMeters: reachable ? distanceMeters : null,
+      durationSeconds: reachable && hasDurationForEveryLeg ? totalDurationSeconds : null,
+      legs,
+      provider: this.provider,
+      methodsUsed: [...methods],
+      fallbackUsed
     };
   }
 }

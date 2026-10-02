@@ -60,9 +60,14 @@ assert.equal(
 
 const orderingLabel = 'Priority-weighted nearest-neighbor ordering | 2-opt heuristic';
 assert.equal(
-  routeMethodOverlayLabel({ routingMethod: 'NETWORK_ROUTE', fallbackUsed: false, orderedStops: [{ routingMethod: 'NETWORK_ROUTE' }] }),
+  routeMethodOverlayLabel({ provider: 'INTERNAL', methodsUsed: ['DIJKSTRA'], routingMethod: 'NETWORK_ROUTE', fallbackUsed: false, orderedStops: [{ provider: 'INTERNAL', method: 'DIJKSTRA', routingMethod: 'NETWORK_ROUTE' }] }),
   `Dijkstra per leg | ${orderingLabel}`,
   'network legs retain the Dijkstra label'
+);
+assert.equal(
+  routeMethodOverlayLabel({ provider: 'OSRM', methodsUsed: ['OSRM_TABLE', 'OSRM_ROUTE'], routingMethod: 'NETWORK_ROUTE', fallbackUsed: false, orderedStops: [{ provider: 'OSRM', method: 'OSRM_ROUTE', routingMethod: 'NETWORK_ROUTE' }] }),
+  `OSRM road route | ${orderingLabel}`,
+  'OSRM routes are not labelled as Dijkstra'
 );
 assert.equal(
   routeMethodOverlayLabel({ routingMethod: 'STRAIGHT_LINE_FALLBACK', fallbackUsed: true, orderedStops: [{ routingMethod: 'STRAIGHT_LINE_FALLBACK' }] }),
@@ -71,8 +76,13 @@ assert.equal(
 );
 assert.equal(
   routeMethodOverlayLabel({ routingMethod: 'STRAIGHT_LINE_FALLBACK', fallbackUsed: true, orderedStops: [{ routingMethod: 'NETWORK_ROUTE' }, { routingMethod: 'STRAIGHT_LINE_FALLBACK' }] }),
-  `Mixed network and straight-line fallback | ${orderingLabel}`,
+  `Mixed dijkstra per leg and straight-line fallback | ${orderingLabel}`,
   'mixed legs are identified as mixed routing'
+);
+assert.equal(
+  routeMethodOverlayLabel({ provider: 'INTERNAL', methodsUsed: ['DIJKSTRA', 'HAVERSINE_FALLBACK'], matrixFallbackUsed: true, routingMethod: 'STRAIGHT_LINE_FALLBACK', fallbackUsed: true, orderedStops: [{ provider: 'INTERNAL', method: 'DIJKSTRA', routingMethod: 'NETWORK_ROUTE' }] }),
+  `Dijkstra per leg; Haversine matrix fallback affected ordering | ${orderingLabel}`,
+  'matrix fallback is not misreported as a selected fallback leg'
 );
 assert.equal(
   routeMethodOverlayLabel(null),

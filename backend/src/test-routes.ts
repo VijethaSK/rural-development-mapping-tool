@@ -106,7 +106,8 @@ async function runRouteTests() {
     console.log(`   - Stops Count: ${multiStopRes.stopsCount}`);
     console.log(`   - Total Distance: ${multiStopRes.totalDistanceKm} km`);
     console.log(`   - Estimated Duration: ${multiStopRes.estimatedDurationMinutes} mins`);
-    console.log(`   - Algorithm: ${multiStopRes.algorithm.shortestPath} + ${multiStopRes.algorithm.ordering} + ${multiStopRes.algorithm.improvement}`);
+    console.log(`   - Provider/methods: ${multiStopRes.provider} / ${multiStopRes.methodsUsed.join(', ')}`);
+    console.log(`   - Ordering: ${multiStopRes.algorithm.ordering} + ${multiStopRes.algorithm.improvement}`);
     console.log('   - Stop Order:');
     multiStopRes.orderedStops.forEach((s) => {
       console.log(`     #${s.sequence}: ${s.infrastructureName} [${s.priorityLevel}, score: ${s.priorityScore}] (+${s.distanceFromPreviousKm} km, ETA: ${s.estimatedArrivalTime})`);

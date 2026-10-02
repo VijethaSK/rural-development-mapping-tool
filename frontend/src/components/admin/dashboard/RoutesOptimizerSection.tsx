@@ -41,7 +41,7 @@ export function RoutesOptimizerSection({ metrics }: Props) {
           <div>
             <span className="text-xs text-slate-500 font-medium block">Total Transit Distance</span>
             <div className="text-2xl font-black text-blue-700 mt-1">{metrics.totalDistanceKm} km</div>
-            <span className="text-[11px] text-blue-600 mt-0.5 block">Optimized via Dijkstra + 2-Opt TSP</span>
+            <span className="text-[11px] text-blue-600 mt-0.5 block">Saved route distance</span>
           </div>
           <span className="text-3xl">📏</span>
         </div>

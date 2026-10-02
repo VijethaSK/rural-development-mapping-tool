@@ -1,8 +1,45 @@
-import { Coordinate, StopCandidate, OrderedStop, RouteOptimizationOptions, RouteOptimizationResult, IRoutingProvider, ShortestPathResult } from './types.js';
-import { RoadGraph } from './graph.js';
+import { Coordinate, StopCandidate, OrderedStop, RouteOptimizationOptions, RouteOptimizationResult, IRoutingProvider, RoutingMethod } from './types.js';
 import { getRoutingProvider } from './routingProvider.js';
 
 export const MAX_ROUTE_STOPS = 50;
+
+export function buildRoutingAlgorithmDescription(provider: string, methods: readonly RoutingMethod[]): string {
+  const methodSummary = methods.length ? methods.join(', ') : 'no route legs';
+  return `${provider} routing used ${methodSummary} across matrix and selected-route calculations; priority-weighted nearest-neighbor ordering and 2-opt are sequencing heuristics, not an exact multi-stop shortest-path solution.`;
+}
+
+type MatrixPathMeasurement = { distanceMeters: number; methodSignature: string[] };
+
+function measureMatrixPath(matrix: Awaited<ReturnType<IRoutingProvider['getDistanceMatrix']>>, indexes: number[]): MatrixPathMeasurement | null {
+  let distanceMeters = 0;
+  const methodSignature: string[] = [];
+  for (let i = 0; i < indexes.length - 1; i++) {
+    const cell = matrix.matrix[indexes[i]]?.[indexes[i + 1]];
+    if (!cell?.reachable || cell.distanceMeters == null || !Number.isFinite(cell.distanceMeters) || cell.distanceMeters < 0) return null;
+    distanceMeters += cell.distanceMeters;
+    methodSignature.push(`${cell.provider}:${cell.method}:${cell.fallbackUsed}`);
+  }
+  return { distanceMeters, methodSignature };
+}
+
+function getComparableMatrixDistances(
+  matrix: Awaited<ReturnType<IRoutingProvider['getDistanceMatrix']>>,
+  originalIndexes: number[],
+  optimizedIndexes: number[]
+): { originalDistanceKm: number; optimizedDistanceKm: number; distanceSavingsKm: number; savingsPercent: number } | null {
+  const original = measureMatrixPath(matrix, originalIndexes);
+  const optimized = measureMatrixPath(matrix, optimizedIndexes);
+  if (!original || !optimized || original.methodSignature.length !== optimized.methodSignature.length ||
+      original.methodSignature.some((method, index) => method !== optimized.methodSignature[index])) return null;
+
+  const savingsMeters = original.distanceMeters - optimized.distanceMeters;
+  return {
+    originalDistanceKm: Number((original.distanceMeters / 1000).toFixed(2)),
+    optimizedDistanceKm: Number((optimized.distanceMeters / 1000).toFixed(2)),
+    distanceSavingsKm: Number((savingsMeters / 1000).toFixed(2)),
+    savingsPercent: original.distanceMeters > 0 ? Number((savingsMeters / original.distanceMeters * 100).toFixed(1)) : 0
+  };
+}
 
 export class MultiStopOptimizer {
   public static validateCoordinate(coord: Coordinate, label = 'Coordinate'): void {
@@ -34,38 +71,51 @@ export class MultiStopOptimizer {
     if (inputStops.length > MAX_ROUTE_STOPS) throw new Error(`A route may contain at most ${MAX_ROUTE_STOPS} stops.`);
     inputStops.forEach((s, i) => this.validateCoordinate(s.location, `maintenance location #${i + 1}`));
     const stops = this.deduplicateStops(inputStops);
-    const algorithm = { shortestPath: 'Dijkstra' as const, ordering: 'Priority-Weighted Nearest Neighbor' as const, improvement: '2-opt' as const, description: 'Dijkstra calculates each network leg; priority-weighted nearest-neighbor ordering and 2-opt are heuristics for sequencing stops, not an exact multi-stop shortest-path solution.' };
-    if (!stops.length) return { orderedStops: [], routeGeometry: { type: 'LineString', coordinates: [[start.lng, start.lat]] }, totalDistanceKm: 0, totalDistanceMeters: 0, estimatedDurationMinutes: 0, routingMethod: 'NETWORK_ROUTE', fallbackUsed: false, unreachableStops: [], stopsCount: 0, originalDistanceKm: 0, optimizedDistanceKm: 0, distanceSavingsKm: 0, savingsPercent: 0, algorithm, explanation: { summary: 'No maintenance stops provided.', tradeoffRationale: algorithm.description, stopOrderReasons: [] } };
+    const algorithmBase = { ordering: 'Priority-Weighted Nearest Neighbor' as const, improvement: '2-opt' as const };
+    const emptyAlgorithm = { ...algorithmBase, description: 'No routing provider was invoked because no stops were supplied; priority-weighted nearest-neighbor ordering and 2-opt are stop-sequencing heuristics.' };
+    if (!stops.length) return { orderedStops: [], routeGeometry: { type: 'LineString', coordinates: [[start.lng, start.lat]] }, totalDistanceKm: 0, totalDistanceMeters: 0, estimatedDurationMinutes: 0, provider: null, methodsUsed: [], matrixFallbackUsed: false, routingMethod: 'NETWORK_ROUTE', fallbackUsed: false, unreachableStops: [], stopsCount: 0, originalDistanceKm: 0, optimizedDistanceKm: 0, distanceSavingsKm: 0, savingsPercent: 0, algorithm: emptyAlgorithm, explanation: { summary: 'No maintenance stops provided.', tradeoffRationale: emptyAlgorithm.description, stopOrderReasons: [] } };
+
     const speed = options.averageSpeedKmph ?? 30;
     if (!Number.isFinite(speed) || speed <= 0 || speed > 120) throw new Error('averageSpeedKmph must be greater than 0 and no more than 120.');
     const weight = options.priorityWeight ?? 1.4;
     if (!Number.isFinite(weight) || weight < 0 || weight > 3) throw new Error('priorityWeight must be between 0 and 3.');
+
     const provider = customProvider || await getRoutingProvider(options.panchayatId);
     const points = [start, ...stops.map(s => s.location)];
     const matrix = await provider.getDistanceMatrix(points);
-    const D = matrix.distancesMeters;
+    if (matrix.provider !== provider.provider || matrix.matrix.length !== points.length || matrix.matrix.some(row => row.length !== points.length)) {
+      throw new Error('Routing provider returned a distance matrix with invalid provider metadata or dimensions.');
+    }
+    // Each direction is read independently; OSRM and other providers may be asymmetric.
+    // Null/unreachable entries become Infinity only for the existing ordering heuristics.
+    const distances = matrix.matrix.map(row => row.map(cell =>
+      cell.reachable && cell.distanceMeters !== null && Number.isFinite(cell.distanceMeters) && cell.distanceMeters >= 0
+        ? cell.distanceMeters
+        : Infinity
+    ));
+
     const unreachableIndices = new Set<number>();
-    // Identify destinations unreachable from the start before ordering. No leg is invented.
-    for (let i = 1; i < points.length; i++) if (!Number.isFinite(D[0][i])) unreachableIndices.add(i);
+    for (let i = 1; i < points.length; i++) if (!Number.isFinite(distances[0][i])) unreachableIndices.add(i);
     const remaining = new Set<number>(Array.from({ length: stops.length }, (_, i) => i + 1).filter(i => !unreachableIndices.has(i)));
     const order: number[] = [];
     let current = 0;
     while (remaining.size) {
       let best = -1, bestCost = Infinity;
       for (const i of remaining) {
-        const p = Math.max(0, stops[i - 1].priorityScore || 0) / 100;
-        const cost = D[current][i] / (1 + weight * Math.pow(p, 1.5));
+        const priority = Math.max(0, stops[i - 1].priorityScore || 0) / 100;
+        const cost = distances[current][i] / (1 + weight * Math.pow(priority, 1.5));
         if (Number.isFinite(cost) && cost < bestCost) { best = i; bestCost = cost; }
       }
       if (best < 0) { for (const i of remaining) unreachableIndices.add(i); break; }
       order.push(best); remaining.delete(best); current = best;
     }
-    // 2-opt reversals are accepted only if every resulting edge is reachable.
+
+    // 2-opt uses directed costs for every transition and accepts only reachable reversals.
     if ((options.apply2Opt ?? true) && order.length > 2) {
-      const cost = (o: number[]) => {
-        let total = D[0][o[0]];
-        for (let i = 0; i < o.length - 1; i++) total += D[o[i]][o[i + 1]];
-        for (let i = 0; i < o.length; i++) total += i * Math.max(0, stops[o[i] - 1].priorityScore || 0) / 100 * 1200;
+      const cost = (sequence: number[]) => {
+        let total = distances[0][sequence[0]];
+        for (let i = 0; i < sequence.length - 1; i++) total += distances[sequence[i]][sequence[i + 1]];
+        for (let i = 0; i < sequence.length; i++) total += i * Math.max(0, stops[sequence[i] - 1].priorityScore || 0) / 100 * 1200;
         return total;
       };
       let improved = true, rounds = 0;
@@ -73,39 +123,86 @@ export class MultiStopOptimizer {
         improved = false;
         for (let i = 0; i < order.length - 1 && !improved; i++) for (let k = i + 1; k < order.length; k++) {
           const candidate = [...order.slice(0, i), ...order.slice(i, k + 1).reverse(), ...order.slice(k + 1)];
-          if (candidate.every((id, j) => Number.isFinite(D[j === 0 ? 0 : candidate[j - 1]][id])) && cost(candidate) < cost(order) - 10) { order.splice(0, order.length, ...candidate); improved = true; break; }
+          if (candidate.every((id, j) => Number.isFinite(distances[j === 0 ? 0 : candidate[j - 1]][id])) && cost(candidate) < cost(order) - 10) { order.splice(0, order.length, ...candidate); improved = true; break; }
         }
       }
     }
-    let meters = 0, elapsed = 0, last = 0, fallbackUsed = false;
-    let allNetwork = true;
-    const coords: [number, number][] = [];
+
+    // Geometry is requested only for the selected order, not for every matrix pair.
+    const orderedPoints = [start, ...order.map(index => stops[index - 1].location)];
+    const route = await provider.getRoute(orderedPoints);
+    if (!route.reachable || route.distanceMeters === null || route.legs.length !== order.length) {
+      throw new Error('Routing provider could not return geometry for the selected reachable stop sequence.');
+    }
+
+    const allNetwork = route.legs.every(leg => leg.routingMethod === 'NETWORK_ROUTE');
+    const allProviderDurations = route.legs.every(leg => leg.durationSeconds != null);
+    const canEstimateDuration = allNetwork;
+    let meters = 0, elapsed = 0;
     const orderedStops: OrderedStop[] = [];
     for (let n = 0; n < order.length; n++) {
-      const idx = order[n], stop = stops[idx - 1];
-      const path: ShortestPathResult = matrix.paths[last][idx];
-      if (!path?.reachable || !Number.isFinite(path.distanceMeters)) { unreachableIndices.add(idx); continue; }
-      const legKm = path.distanceMeters / 1000;
-      meters += path.distanceMeters;
-      fallbackUsed ||= path.fallbackUsed;
-      allNetwork &&= path.routingMethod === 'NETWORK_ROUTE';
-      if (allNetwork) elapsed += (legKm / speed) * 60;
-      if (path.coordinates.length) coords.push(...(coords.length ? path.coordinates.slice(1) : path.coordinates));
-      const arrival = allNetwork ? elapsed : undefined;
-      const distanceDescription = path.routingMethod === 'NETWORK_ROUTE'
-        ? `road distance calculated for this leg by ${path.algorithm}`
-        : `distance calculated using ${path.algorithm}`;
-      orderedStops.push({ sequence: orderedStops.length + 1, infrastructureId: stop.infrastructureId, infrastructureName: stop.infrastructureName || `Asset ${stop.infrastructureId}`, type: stop.type, location: stop.location, priorityScore: stop.priorityScore, priorityLevel: stop.priorityLevel, distanceFromPreviousKm: Number(legKm.toFixed(2)), cumulativeDistanceKm: Number((meters / 1000).toFixed(2)), ...(arrival == null ? {} : { estimatedArrivalMinutes: Math.round(arrival), estimatedArrivalTime: this.formatArrivalTime(9, 0, arrival) }), routingMethod: path.routingMethod, reasonForOrder: `Stop #${orderedStops.length + 1}: priority-weighted nearest-neighbor sequencing; ${distanceDescription}.` });
-      // Maintenance inspection buffer is assumed and added only to network travel estimate.
-      if (allNetwork) elapsed += 15;
-      last = idx;
+      const stop = stops[order[n] - 1], leg = route.legs[n];
+      if (!leg.reachable || !Number.isFinite(leg.distanceMeters)) throw new Error('Routing provider returned an unreachable leg in the selected route sequence.');
+      const legKm = leg.distanceMeters / 1000;
+      meters += leg.distanceMeters;
+      if (canEstimateDuration) elapsed += allProviderDurations ? (leg.durationSeconds! / 60) : (legKm / speed) * 60;
+      const arrival = canEstimateDuration ? elapsed : undefined;
+      const distanceDescription = leg.method === 'HAVERSINE_FALLBACK'
+        ? 'distance calculated using Straight-line Haversine fallback'
+        : `network distance calculated by ${leg.method}`;
+      orderedStops.push({
+        sequence: orderedStops.length + 1,
+        infrastructureId: stop.infrastructureId,
+        infrastructureName: stop.infrastructureName || `Asset ${stop.infrastructureId}`,
+        type: stop.type,
+        location: stop.location,
+        priorityScore: stop.priorityScore,
+        priorityLevel: stop.priorityLevel,
+        distanceFromPreviousKm: Number(legKm.toFixed(2)),
+        durationSeconds: leg.durationSeconds ?? null,
+        cumulativeDistanceKm: Number((meters / 1000).toFixed(2)),
+        ...(arrival == null ? {} : { estimatedArrivalMinutes: Math.round(arrival), estimatedArrivalTime: this.formatArrivalTime(9, 0, arrival) }),
+        routingMethod: leg.routingMethod,
+        provider: leg.provider,
+        method: leg.method,
+        reasonForOrder: `Stop #${orderedStops.length + 1}: priority-weighted nearest-neighbor sequencing; ${distanceDescription}.`
+      });
+      if (canEstimateDuration) elapsed += 15;
     }
-    const unreachableStops = [...unreachableIndices].map(i => ({ infrastructureId: stops[i - 1].infrastructureId, infrastructureName: stops[i - 1].infrastructureName || `Asset ${stops[i - 1].infrastructureId}`, reason: 'No network path from the start or previously reachable route segment; stop excluded from route geometry.' }));
-    const totalKm = Number((meters / 1000).toFixed(2));
-    const original = order.reduce((sum, idx, n) => sum + D[n === 0 ? 0 : order[n - 1]][idx], 0);
-    const originalKm = Number((original / 1000).toFixed(2));
-    const savings = Number(Math.max(0, originalKm - totalKm).toFixed(2));
-    const summary = `${orderedStops.length} reachable stop(s), ${totalKm} km by ${fallbackUsed ? 'straight-line fallback for at least one leg' : 'network routing'}${unreachableStops.length ? `; ${unreachableStops.length} stop(s) unreachable` : ''}.`;
-    return { orderedStops, routeGeometry: { type: 'LineString', coordinates: coords.length ? coords : [[start.lng, start.lat]] }, totalDistanceKm: totalKm, totalDistanceMeters: Math.round(meters), estimatedDurationMinutes: allNetwork ? Math.round(elapsed) : null, routingMethod: fallbackUsed ? 'STRAIGHT_LINE_FALLBACK' : 'NETWORK_ROUTE', fallbackUsed, unreachableStops, stopsCount: orderedStops.length, originalDistanceKm: Number.isFinite(originalKm) ? originalKm : undefined, optimizedDistanceKm: totalKm, distanceSavingsKm: savings, savingsPercent: originalKm > 0 ? Number((savings / originalKm * 100).toFixed(1)) : 0, algorithm, explanation: { summary, tradeoffRationale: algorithm.description, stopOrderReasons: orderedStops.map(s => `${s.sequence}. ${s.infrastructureName}: ${s.reasonForOrder}`) } };
+
+    const unreachableStops = [...unreachableIndices].map(i => ({ infrastructureId: stops[i - 1].infrastructureId, infrastructureName: stops[i - 1].infrastructureName || `Asset ${stops[i - 1].infrastructureId}`, reason: 'No reachable transition from the depot or previously selected route segment; stop excluded from route geometry.' }));
+    const totalMeters = route.distanceMeters;
+    const totalKm = Number((totalMeters / 1000).toFixed(2));
+    const comparison = getComparableMatrixDistances(
+      matrix,
+      [0, ...stops.map((_, index) => index + 1)],
+      [0, ...order]
+    );
+    // Matrix fallback cells also influenced stop ordering, even when a selected leg is network-routed.
+    const fallbackUsed = matrix.fallbackUsed || route.fallbackUsed || route.legs.some(leg => leg.fallbackUsed);
+    const methodsUsed = [...new Set<RoutingMethod>(matrix.methodsUsed.concat(route.methodsUsed, route.legs.map(leg => leg.method)))];
+    const legacyDijkstraLabel = route.provider === 'INTERNAL' && methodsUsed.length === 1 && methodsUsed[0] === 'DIJKSTRA'
+      ? { shortestPath: 'Dijkstra' as const }
+      : {};
+    const algorithm = { ...algorithmBase, ...legacyDijkstraLabel, description: buildRoutingAlgorithmDescription(route.provider, methodsUsed) };
+    const summary = `${orderedStops.length} reachable stop(s), ${totalKm} km${fallbackUsed ? ' with explicitly identified straight-line fallback metrics used during optimization or routing' : ' by network routing'}${unreachableStops.length ? `; ${unreachableStops.length} stop(s) unreachable` : ''}.`;
+
+    return {
+      orderedStops,
+      routeGeometry: route.geometry,
+      totalDistanceKm: totalKm,
+      totalDistanceMeters: Math.round(totalMeters),
+      estimatedDurationMinutes: canEstimateDuration ? Math.round(elapsed) : null,
+      provider: route.provider,
+      methodsUsed,
+      matrixFallbackUsed: matrix.fallbackUsed,
+      routingMethod: fallbackUsed ? 'STRAIGHT_LINE_FALLBACK' : 'NETWORK_ROUTE',
+      fallbackUsed,
+      unreachableStops,
+      stopsCount: orderedStops.length,
+      ...(comparison ?? {}),
+      algorithm,
+      explanation: { summary, tradeoffRationale: algorithm.description, stopOrderReasons: orderedStops.map(s => `${s.sequence}. ${s.infrastructureName}: ${s.reasonForOrder}`) }
+    };
   }
 }
