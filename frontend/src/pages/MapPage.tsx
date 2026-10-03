@@ -6,6 +6,7 @@ import { HeatmapPoint, ComplaintCluster, ComplaintDetail } from '../types/compla
 import { UnderservedArea } from '../types/gap';
 import { api, apiFetch } from '../api/client';
 import { countRoadRecords, filterMappedRoads, getRoadLineCoordinates } from '../utils/roadGeometry';
+import { commitMapDataIfCurrent, createMapBootstrapGuard, createMapRequestGate, deriveScopedMapCenter, runMapRequestIfCurrent } from '../utils/mapPageScope.mjs';
 import HeatmapOverlay from '../components/HeatmapOverlay';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
 import ClusterInspectionModal from '../components/ClusterInspectionModal';
@@ -239,6 +240,27 @@ export default function MapPage() {
 
   // In-Memory Layer Cache to prevent unnecessary repeated fetches
   const cacheRef = useRef<Record<string, any>>({});
+  const mapRequestGateRef = useRef(createMapRequestGate());
+
+  const selectPanchayat = (panchayat: Panchayat | null) => {
+    mapRequestGateRef.current.select(panchayat?._id);
+    setSelectedPanchayat(panchayat);
+    setSelectedWard('All');
+    setRankedAssets([]);
+    setComplaints([]);
+    setHeatmapPoints([]);
+    setRoutes([]);
+    setUnderservedAreas([]);
+    setInspectedAsset(null);
+    setDetailModalAsset(null);
+    setInspectedCluster(null);
+    setLoading(Boolean(panchayat?._id));
+  };
+
+  const selectWard = (ward: string) => {
+    mapRequestGateRef.current.invalidate();
+    setSelectedWard(ward);
+  };
 
   // ----------------- 8 LAYER TOGGLES -----------------
   const [layers, setLayers] = useState({
@@ -266,40 +288,52 @@ export default function MapPage() {
 
   // ----------------- DATA FETCHING WITH CACHING -----------------
 
-  const fetchPanchayats = async () => {
+  const fetchPanchayats = async (bootstrapGuard: ReturnType<typeof createMapBootstrapGuard>) => {
     try {
       const res = await apiFetch('/panchayats');
+      if (!bootstrapGuard.isActive()) return;
       if (res.ok) {
         const list: Panchayat[] = await res.json();
-        setPanchayats(list);
-        if (list.length > 0 && !selectedPanchayat) {
-          // Prefer the imported source inventory on first load while retaining
-          // every Panchayat in the selector, including legacy/demo data.
-          const requestedId = new URLSearchParams(window.location.search).get('panchayatId');
-          setSelectedPanchayat(
-            list.find((item) => item._id === requestedId)
-              || list.find((item) => item.dataOrigin === 'SOURCE_EXCEL')
-              || list[0]
-          );
-        }
+        bootstrapGuard.run(() => {
+          setPanchayats(list);
+          if (list.length > 0 && !selectedPanchayat) {
+            // Prefer the imported source inventory on first load while retaining
+            // every Panchayat in the selector, including legacy/demo data.
+            const requestedId = new URLSearchParams(window.location.search).get('panchayatId');
+            selectPanchayat(
+              list.find((item) => item._id === requestedId)
+                || list.find((item) => item.dataOrigin === 'SOURCE_EXCEL')
+                || list[0]
+            );
+          }
+        });
       }
     } catch (err) {
-      console.warn('Could not load Panchayats:', err);
+      bootstrapGuard.run(() => console.warn('Could not load Panchayats:', err));
     }
   };
 
   const fetchCentralMapData = useCallback(async (forceRefresh = false) => {
     const pId = selectedPanchayat?._id;
+    const request = mapRequestGateRef.current.begin(pId);
+    if (!request) {
+      setLoading(false);
+      return;
+    }
     const cacheKey = `${pId || 'default'}_${selectedWard}`;
+    const applyMapData = (data: any) => {
+      setRankedAssets(data.assets || []);
+      setComplaints(data.complaints || []);
+      setHeatmapPoints(data.heatmap || []);
+      setRoutes(data.routes || []);
+      setUnderservedAreas(data.gaps || []);
+    };
 
     if (!forceRefresh && cacheRef.current[cacheKey]) {
       const cached = cacheRef.current[cacheKey];
-      setRankedAssets(cached.assets || []);
-      setComplaints(cached.complaints || []);
-      setHeatmapPoints(cached.heatmap || []);
-      setRoutes(cached.routes || []);
-      setUnderservedAreas(cached.gaps || []);
-      setLoading(false);
+      if (commitMapDataIfCurrent(mapRequestGateRef.current, request, cacheKey, cached, cacheRef.current, applyMapData)) {
+        setLoading(false);
+      }
       return;
     }
 
@@ -362,43 +396,46 @@ export default function MapPage() {
         gapsPromise,
       ]);
 
-      setRankedAssets(assets);
-      setComplaints(comps);
-      setHeatmapPoints(heat);
-      setRoutes(rts);
-      setUnderservedAreas(gaps);
-
-      // Save into cache
-      cacheRef.current[cacheKey] = {
+      const mapData = {
         assets,
         complaints: comps,
         heatmap: heat,
         routes: rts,
         gaps,
       };
+      commitMapDataIfCurrent(mapRequestGateRef.current, request, cacheKey, mapData, cacheRef.current, applyMapData);
     } catch (err) {
-      console.error('Failed to load GIS layer data:', err);
+      runMapRequestIfCurrent(mapRequestGateRef.current, request, () => {
+        console.error('Failed to load GIS layer data:', err);
+      });
     } finally {
-      setLoading(false);
+      runMapRequestIfCurrent(mapRequestGateRef.current, request, () => setLoading(false));
     }
   }, [selectedPanchayat?._id, selectedWard]);
 
   useEffect(() => {
-    fetchPanchayats();
+    const bootstrapGuard = createMapBootstrapGuard();
+    void fetchPanchayats(bootstrapGuard);
+
+    return () => {
+      bootstrapGuard.cleanup();
+    };
   }, []);
 
   useEffect(() => {
-    fetchCentralMapData();
+    const lifecycleId = mapRequestGateRef.current.activate();
+    void fetchCentralMapData();
+
+    return () => {
+      mapRequestGateRef.current.deactivate(lifecycleId);
+    };
   }, [fetchCentralMapData]);
 
   // Center coordinate determination
-  const mapCenter: [number, number] = useMemo(() => {
-    if (selectedPanchayat?.centerCoord) {
-      return [selectedPanchayat.centerCoord.lat, selectedPanchayat.centerCoord.lng];
-    }
-    const coordinates = rankedAssets.map((asset: any) => asset.location?.coordinates).find((coords: any) => Array.isArray(coords) && Number.isFinite(coords[1]) && Number.isFinite(coords[0]));
-    return coordinates ? [coordinates[1], coordinates[0]] : [0, 0];
-  }, [selectedPanchayat, rankedAssets]);
+  const mapCenter = useMemo(
+    () => deriveScopedMapCenter(selectedPanchayat, rankedAssets),
+    [selectedPanchayat, rankedAssets]
+  );
 
   // Available Wards
   const availableWards = useMemo(() => {
@@ -697,8 +734,7 @@ export default function MapPage() {
                 onChange={(e) => {
                   const found = panchayats.find((p) => p._id === e.target.value);
                   if (found) {
-                    setSelectedPanchayat(found);
-                    setSelectedWard('All');
+                    selectPanchayat(found);
                   }
                 }}
                 className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-800 dark:text-white"
@@ -714,7 +750,7 @@ export default function MapPage() {
                 <span className="text-slate-500 whitespace-nowrap">Area / Ward:</span>
                 <select
                   value={selectedWard}
-                  onChange={(e) => setSelectedWard(e.target.value)}
+                  onChange={(e) => selectWard(e.target.value)}
                   className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold text-slate-800 dark:text-white"
                 >
                   <option value="All">All Areas ({availableWards.length})</option>
@@ -1094,6 +1130,7 @@ export default function MapPage() {
         </div>
 
         {/* ----------------- LEAFLET MAP CONTAINER ----------------- */}
+        {mapCenter ? (
         <MapContainer
           center={mapCenter}
           zoom={13}
@@ -1578,6 +1615,11 @@ export default function MapPage() {
               );
             })}
         </MapContainer>
+        ) : (
+          <div role="status" className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-950 px-6 text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
+            Map location unavailable for this Panchayat. No valid center or scoped infrastructure coordinates are available.
+          </div>
+        )}
 
         {/* ----------------- CLICKED INFRASTRUCTURE INSPECTOR (DRAWER) ----------------- */}
         {inspectedAsset && (
