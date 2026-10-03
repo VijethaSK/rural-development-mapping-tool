@@ -76,6 +76,7 @@ export interface AccessibilityMetrics {
   underservedAreasCount: number;
   percentageAreaUnderserved: number; // % of spatial grid cells without threshold access
   totalPopulation: number | null;
+  populationInUnderservedHabitations: number | null;
   populationAffected: number | null;
   percentagePopulationAffected: number | null;
   averageDistanceToSchoolKm: number;

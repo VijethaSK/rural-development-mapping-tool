@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { Panchayat } from './models/Panchayat.js';
 import {
   calculateGapPopulationMetrics,
+  calculateOverallGapPopulationMetrics,
   gapAreaPopulation,
   populationCount,
   unavailableGapPopulationMetrics
@@ -51,6 +52,30 @@ assert.deepEqual(calculateGapPopulationMetrics([0, 0], []), {
   populationAffected: 0,
   percentagePopulationAffected: null
 }, 'known zero totals remain zero while division by zero is unavailable');
+assert.deepEqual(calculateOverallGapPopulationMetrics([100, 50], [], [null, null]), {
+  totalPopulation: 150,
+  populationInUnderservedHabitations: 0,
+  populationAffected: null,
+  percentagePopulationAffected: null
+}, 'unknown grid-cell populations make overall affected population unavailable');
+assert.deepEqual(calculateOverallGapPopulationMetrics([100], [], []), {
+  totalPopulation: 100,
+  populationInUnderservedHabitations: 0,
+  populationAffected: 0,
+  percentagePopulationAffected: 0
+}, 'known population with no habitation or grid gaps preserves genuine zero');
+assert.deepEqual(calculateOverallGapPopulationMetrics([100, null], [100], []), {
+  totalPopulation: null,
+  populationInUnderservedHabitations: null,
+  populationAffected: null,
+  percentagePopulationAffected: null
+}, 'missing habitation population keeps population metrics unavailable');
+assert.deepEqual(calculateOverallGapPopulationMetrics([100, 50], [50], [null]), {
+  totalPopulation: 150,
+  populationInUnderservedHabitations: 50,
+  populationAffected: null,
+  percentagePopulationAffected: null
+}, 'known habitation attribution stays separate from unknown overall grid impact');
 assert.deepEqual(unavailableGapPopulationMetrics(), {
   affectedPopulation: null,
   totalPopulation: null,

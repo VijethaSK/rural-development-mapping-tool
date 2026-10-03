@@ -60,6 +60,7 @@ export interface AccessibilityMetrics {
   underservedAreasCount: number;
   percentageAreaUnderserved: number;
   totalPopulation: number | null;
+  populationInUnderservedHabitations: number | null;
   populationAffected: number | null;
   percentagePopulationAffected: number | null;
   averageDistanceToSchoolKm: number;

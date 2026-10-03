@@ -39,6 +39,7 @@ test('gap-analysis cards, popups, tables, and dashboard views use null-aware for
   const dashboardMap = read('../components/admin/dashboard/MapIntelligenceSection.tsx');
 
   assert.match(gapAnalysisPage, /formatPopulation\(metrics\.populationAffected\)/);
+  assert.match(gapAnalysisPage, /Population in underserved habitations: \{formatPopulation\(metrics\.populationInUnderservedHabitations\)\}/);
   assert.match(gapAnalysisPage, /formatPercentage\(metrics\.percentagePopulationAffected\)/);
   assert.match(gapAnalysisPage, /formatPopulation\(hab\.populationAffected\)/);
   assert.match(gapAnalysisPage, /formatPopulation\(area\.populationAffected\)/);

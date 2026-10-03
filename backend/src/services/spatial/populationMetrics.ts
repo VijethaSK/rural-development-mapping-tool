@@ -4,6 +4,10 @@ export interface GapPopulationMetrics {
   percentagePopulationAffected: number | null;
 }
 
+export interface OverallGapPopulationMetrics extends GapPopulationMetrics {
+  populationInUnderservedHabitations: number | null;
+}
+
 export interface DashboardGapPopulationMetrics {
   affectedPopulation: number | null;
   totalPopulation: number | null;
@@ -43,6 +47,31 @@ export function calculateGapPopulationMetrics(
       : null;
 
   return { totalPopulation, populationAffected, percentagePopulationAffected };
+}
+
+/**
+ * Keep habitation attribution visible, but do not report it as overall impact when
+ * underserved grid cells have no population allocation (or a safe deduplication rule).
+ */
+export function calculateOverallGapPopulationMetrics(
+  habitationPopulations: readonly unknown[],
+  affectedHabitationPopulations: readonly unknown[],
+  affectedGridCellPopulations: readonly unknown[]
+): OverallGapPopulationMetrics {
+  const habitationMetrics = calculateGapPopulationMetrics(
+    habitationPopulations,
+    affectedHabitationPopulations
+  );
+  const hasGridCellGaps = affectedGridCellPopulations.length > 0;
+  const populationAffected = hasGridCellGaps ? null : habitationMetrics.populationAffected;
+
+  return {
+    totalPopulation: habitationMetrics.totalPopulation,
+    populationInUnderservedHabitations: habitationMetrics.populationAffected,
+    populationAffected,
+    percentagePopulationAffected:
+      populationAffected === null ? null : habitationMetrics.percentagePopulationAffected
+  };
 }
 
 /** Dashboard analysis failures must not masquerade as zero population or full coverage. */

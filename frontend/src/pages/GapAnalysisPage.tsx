@@ -232,6 +232,9 @@ export default function GapAnalysisPage() {
             <div className="text-[10px] text-purple-600/80">
               {formatPercentage(metrics.percentagePopulationAffected)} of Panchayat
             </div>
+            <div className="mt-1 text-[10px] text-purple-600/80">
+              Population in underserved habitations: {formatPopulation(metrics.populationInUnderservedHabitations)}{metrics.populationInUnderservedHabitations == null ? '' : ' citizens'}
+            </div>
           </div>
 
           <div className="p-4 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">

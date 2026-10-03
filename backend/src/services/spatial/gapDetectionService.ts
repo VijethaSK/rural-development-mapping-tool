@@ -13,7 +13,7 @@ import { SpatialUtils } from './spatialUtils.js';
 import { School, Road } from '../../models/Infrastructure.js';
 import { Panchayat } from '../../models/Panchayat.js';
 import { getRoutingProvider } from '../routing/routingProvider.js';
-import { calculateGapPopulationMetrics, gapAreaPopulation } from './populationMetrics.js';
+import { calculateOverallGapPopulationMetrics, gapAreaPopulation } from './populationMetrics.js';
 
 export class GapDetectionService {
   /**
@@ -405,9 +405,10 @@ export class GapDetectionService {
 
     // Any unknown habitation population makes aggregate counts incomplete; retain known
     // per-habitation values, but do not report a partial sum as the Panchayat total.
-    const populationMetrics = calculateGapPopulationMetrics(
+    const populationMetrics = calculateOverallGapPopulationMetrics(
       habitations.map((habitation) => habitation.population),
-      underservedHabitations.map((habitation) => habitation.populationAffected)
+      underservedHabitations.map((habitation) => habitation.populationAffected),
+      underservedGridCells.map((gridCell) => gridCell.populationAffected)
     );
 
     const percentageAreaUnderserved =
