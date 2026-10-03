@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { RankedInfrastructure, PriorityLevel } from '../types/priority';
 import { HeatmapPoint, ComplaintCluster, ComplaintDetail } from '../types/complaint';
@@ -7,6 +7,7 @@ import { UnderservedArea } from '../types/gap';
 import { api, apiFetch } from '../api/client';
 import { countRoadRecords, filterMappedRoads, getRoadLineCoordinates } from '../utils/roadGeometry';
 import { commitMapDataIfCurrent, createMapBootstrapGuard, createMapRequestGate, deriveScopedMapCenter, runMapRequestIfCurrent } from '../utils/mapPageScope.mjs';
+import { isValidGapCenter, toLeafletPolygonPositions } from '../utils/gapGeometry.mjs';
 import HeatmapOverlay from '../components/HeatmapOverlay';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
 import ClusterInspectionModal from '../components/ClusterInspectionModal';
@@ -1152,56 +1153,76 @@ export default function MapPage() {
           {/* LAYER 8: UNDERSERVED REGIONS (GAP ANALYSIS) */}
           {layers.underserved &&
             underservedAreas.map((gap) => {
-              const radius = 800; // 800m visualization circle
+              const polygonPositions = toLeafletPolygonPositions(gap.polygonGeometry);
+              const validCenter = isValidGapCenter(gap.center);
               const isHigh = gap.overallSeverity === 'Critical' || gap.overallSeverity === 'High';
               const fillColor = isHigh ? '#dc2626' : '#ea580c';
-
-              return (
-                <Circle
-                  key={gap.id}
-                  center={[gap.center.lat, gap.center.lng]}
-                  radius={radius}
-                  pathOptions={{
-                    color: fillColor,
-                    weight: 2,
-                    dashArray: '5, 8',
-                    fillColor,
-                    fillOpacity: 0.22,
-                  }}
-                >
-                  <Popup>
-                    <div className="p-1 min-w-[220px] text-xs space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-black text-slate-900">{gap.name}</span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${
-                            isHigh ? 'bg-red-600' : 'bg-amber-600'
-                          }`}
-                        >
-                          {gap.overallSeverity} Gap
-                        </span>
+              const popup = (
+                <div className="p-1 min-w-[220px] text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-slate-900">{gap.name}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${
+                        isHigh ? 'bg-red-600' : 'bg-amber-600'
+                      }`}
+                    >
+                      {gap.overallSeverity} Gap
+                    </span>
+                  </div>
+                  <p className="text-slate-600 text-[11px]">{gap.notes}</p>
+                  <p className="text-slate-500 text-[10px]">
+                    {polygonPositions
+                      ? 'Analytical gap geometry; not an official Panchayat boundary.'
+                      : 'Area geometry unavailable; point marks the gap location only.'}
+                  </p>
+                  <div className="space-y-0.5 text-slate-700">
+                    {gap.nearestSchool && (
+                      <div>
+                        Nearest School:{' '}
+                        <strong>
+                          {gap.nearestSchool.name} (
+                          {gap.nearestSchool.geographicDistanceKm.toFixed(1)} km vs{' '}
+                          {gap.nearestSchool.thresholdKm} km limit)
+                        </strong>
                       </div>
-                      <p className="text-slate-600 text-[11px]">{gap.notes}</p>
-                      <div className="space-y-0.5 text-slate-700">
-                        {gap.nearestSchool && (
-                          <div>
-                            Nearest School:{' '}
-                            <strong>
-                              {gap.nearestSchool.name} (
-                              {gap.nearestSchool.geographicDistanceKm.toFixed(1)} km vs{' '}
-                              {gap.nearestSchool.thresholdKm} km limit)
-                            </strong>
-                          </div>
-                        )}
-                        <div>
-                          Population Affected:{' '}
-                          <strong>{gap.populationAffected.toLocaleString()} citizens</strong>
-                        </div>
-                      </div>
+                    )}
+                    <div>
+                      Population Affected:{' '}
+                      <strong>{gap.populationAffected.toLocaleString()} citizens</strong>
                     </div>
-                  </Popup>
-                </Circle>
+                  </div>
+                </div>
               );
+              const pathOptions = {
+                color: fillColor,
+                weight: 2,
+                dashArray: '5, 8',
+                fillColor,
+                fillOpacity: 0.22,
+              };
+
+              if (polygonPositions) {
+                return (
+                  <Polygon key={gap.id} positions={polygonPositions} pathOptions={pathOptions}>
+                    <Popup>{popup}</Popup>
+                  </Polygon>
+                );
+              }
+
+              // Keep records without valid geometry discoverable without implying an area.
+              if (validCenter) {
+                return (
+                  <Marker
+                    key={gap.id}
+                    position={[gap.center.lat, gap.center.lng]}
+                    title="Analytical gap location only; area geometry unavailable"
+                  >
+                    <Popup>{popup}</Popup>
+                  </Marker>
+                );
+              }
+
+              return null;
             })}
 
           {/* LAYER 1: ROADS (POLYLINES) */}
