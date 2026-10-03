@@ -9,7 +9,7 @@ export interface CenterCoord {
 export interface VillageHabitation {
   name: string;
   ward: string;
-  population: number;
+  population?: number | null;
   location: GeoPoint;
 }
 
@@ -42,7 +42,9 @@ const VillageHabitationSchema = new Schema<VillageHabitation>(
   {
     name: { type: String, required: true },
     ward: { type: String, required: true },
-    population: { type: Number, default: 0 },
+    // No default: missing population must remain distinguishable from an explicit zero.
+    // Historical zero values may still be ambiguous because this field previously defaulted to zero.
+    population: { type: Number, min: 0 },
     location: { type: GeoPointSchema, required: true }
   },
   { _id: false }

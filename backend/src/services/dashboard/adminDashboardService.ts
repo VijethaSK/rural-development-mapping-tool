@@ -6,6 +6,7 @@ import { Assignment } from '../../models/Assignment.js';
 import { Route } from '../../models/Route.js';
 import { PriorityScoringService } from '../priorityScoringService.js';
 import { GapDetectionService } from '../spatial/gapDetectionService.js';
+import { unavailableGapPopulationMetrics } from '../spatial/populationMetrics.js';
 import { BudgetRecommendationService } from '../budget/budgetRecommendationService.js';
 import {
   AdminDashboardData,
@@ -249,7 +250,7 @@ export class AdminDashboardService {
             ? Number(h.nearestRoad.geographicDistanceKm.toFixed(2))
             : 0,
           severity: h.overallSeverity,
-          affectedPopulation: h.populationAffected || 0,
+          affectedPopulation: h.populationAffected ?? null,
           issues: [h.notes || h.primaryIssue]
         }));
 
@@ -265,7 +266,9 @@ export class AdminDashboardService {
         totalHabitationsCount: gapResult.metrics.totalHabitations,
         affectedPopulation: gapResult.metrics.populationAffected,
         totalPopulation: gapResult.metrics.totalPopulation,
-        schoolCoveragePercent: Math.max(0, 100 - gapResult.metrics.percentagePopulationAffected),
+        schoolCoveragePercent: gapResult.metrics.percentagePopulationAffected === null
+          ? null
+          : Math.max(0, 100 - gapResult.metrics.percentagePopulationAffected),
         criticalGapsCount,
         highGapsCount,
         topGaps
@@ -274,9 +277,7 @@ export class AdminDashboardService {
       gapAnalysis = {
         underservedHabitationsCount: 0,
         totalHabitationsCount: 0,
-        affectedPopulation: 0,
-        totalPopulation: 0,
-        schoolCoveragePercent: 100,
+        ...unavailableGapPopulationMetrics(),
         criticalGapsCount: 0,
         highGapsCount: 0,
         topGaps: []

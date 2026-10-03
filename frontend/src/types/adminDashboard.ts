@@ -110,16 +110,16 @@ export interface GapSummaryItem {
   distanceToNearestSchoolKm: number;
   distanceToNearestRoadKm: number;
   severity: 'Critical' | 'High' | 'Moderate' | 'Served';
-  affectedPopulation: number;
+  affectedPopulation: number | null;
   issues: string[];
 }
 
 export interface GapMetrics {
   underservedHabitationsCount: number;
   totalHabitationsCount: number;
-  affectedPopulation: number;
-  totalPopulation: number;
-  schoolCoveragePercent: number;
+  affectedPopulation: number | null;
+  totalPopulation: number | null;
+  schoolCoveragePercent: number | null;
   criticalGapsCount: number;
   highGapsCount: number;
   topGaps: GapSummaryItem[];

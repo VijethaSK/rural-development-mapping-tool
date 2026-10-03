@@ -197,7 +197,7 @@ export class AnalyticalReportService {
         name: area.name,
         ward: area.ward,
         severity: area.overallSeverity,
-        affectedPopulation: area.populationAffected || 0,
+        affectedPopulation: area.populationAffected ?? null,
         distanceToNearestSchoolKm: area.nearestSchool?.geographicDistanceKm,
         distanceToNearestRoadKm: area.nearestRoad?.geographicDistanceKm
       }))

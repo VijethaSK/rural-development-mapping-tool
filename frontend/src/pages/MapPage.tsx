@@ -8,6 +8,7 @@ import { api, apiFetch } from '../api/client';
 import { countRoadRecords, filterMappedRoads, getRoadLineCoordinates } from '../utils/roadGeometry';
 import { commitMapDataIfCurrent, createMapBootstrapGuard, createMapRequestGate, deriveScopedMapCenter, runMapRequestIfCurrent } from '../utils/mapPageScope.mjs';
 import { isValidGapCenter, toLeafletPolygonPositions } from '../utils/gapGeometry.mjs';
+import { formatPopulation } from '../utils/populationDisplay.mjs';
 import HeatmapOverlay from '../components/HeatmapOverlay';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
 import ClusterInspectionModal from '../components/ClusterInspectionModal';
@@ -1188,7 +1189,7 @@ export default function MapPage() {
                     )}
                     <div>
                       Population Affected:{' '}
-                      <strong>{gap.populationAffected.toLocaleString()} citizens</strong>
+                      <strong>{formatPopulation(gap.populationAffected)}{gap.populationAffected == null ? '' : ' citizens'}</strong>
                     </div>
                   </div>
                 </div>

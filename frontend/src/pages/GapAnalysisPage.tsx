@@ -10,6 +10,7 @@ import {
   GapSeverity
 } from '../types/gap';
 import { api } from '../api/client';
+import { formatPercentage, formatPopulation } from '../utils/populationDisplay.mjs';
 
 // Custom icons
 const schoolIcon = L.divIcon({
@@ -226,10 +227,10 @@ export default function GapAnalysisPage() {
               Affected Population
             </div>
             <div className="text-2xl font-bold mt-1 text-purple-800 dark:text-purple-300">
-              {metrics.populationAffected.toLocaleString()}
+              {formatPopulation(metrics.populationAffected)}
             </div>
             <div className="text-[10px] text-purple-600/80">
-              {metrics.percentagePopulationAffected}% of Panchayat
+              {formatPercentage(metrics.percentagePopulationAffected)} of Panchayat
             </div>
           </div>
 
@@ -487,7 +488,7 @@ export default function GapAnalysisPage() {
                           </span>
                         </div>
                         <div className="mt-1 text-slate-600 space-y-0.5">
-                          <div>Population: <strong>{hab.populationAffected.toLocaleString()}</strong></div>
+                          <div>Population: <strong>{formatPopulation(hab.populationAffected)}{hab.populationAffected == null ? '' : ' citizens'}</strong></div>
                           {hab.ward && <div>Ward: <strong>{hab.ward}</strong></div>}
                           {hab.nearestSchool && (
                             <div>
@@ -658,9 +659,7 @@ export default function GapAnalysisPage() {
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-semibold">
-                        {area.populationAffected > 0
-                          ? area.populationAffected.toLocaleString()
-                          : '—'}
+                        {formatPopulation(area.populationAffected)}
                       </td>
                       <td className="py-2.5 px-3 text-[11px] text-slate-600 dark:text-slate-400">
                         {area.primaryIssue === 'Dual_Deprivation' && (

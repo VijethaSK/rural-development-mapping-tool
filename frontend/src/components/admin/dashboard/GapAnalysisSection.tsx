@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { GapMetrics, GapSummaryItem } from '../../../types/adminDashboard';
+import { formatPercentage, formatPopulation } from '../../../utils/populationDisplay.mjs';
 
 interface Props {
   metrics: GapMetrics;
@@ -53,16 +54,16 @@ export function GapAnalysisSection({ metrics }: Props) {
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <span className="text-xs text-slate-500 font-medium block">Affected Population</span>
           <div className="text-2xl font-black text-amber-600 mt-1">
-            {metrics.affectedPopulation.toLocaleString()}
+            {formatPopulation(metrics.affectedPopulation)}
           </div>
           <span className="text-[11px] text-slate-400 mt-0.5 block">
-            Out of {metrics.totalPopulation.toLocaleString()} total residents
+            Out of {formatPopulation(metrics.totalPopulation)} total residents
           </span>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <span className="text-xs text-slate-500 font-medium block">School Accessibility</span>
-          <div className="text-2xl font-black text-emerald-600 mt-1">{metrics.schoolCoveragePercent}%</div>
+          <div className="text-2xl font-black text-emerald-600 mt-1">{formatPercentage(metrics.schoolCoveragePercent)}</div>
           <span className="text-[11px] text-emerald-600 mt-0.5 block">Compliant with 3 km RTE threshold</span>
         </div>
 
@@ -120,7 +121,7 @@ export function GapAnalysisSection({ metrics }: Props) {
                   </div>
                   <div className="text-right">
                     <span className="text-[11px] text-slate-400 block">Affected Pop.</span>
-                    <span className="font-bold text-purple-700">{gap.affectedPopulation.toLocaleString()}</span>
+                    <span className="font-bold text-purple-700">{formatPopulation(gap.affectedPopulation)}{gap.affectedPopulation == null ? '' : ' citizens'}</span>
                   </div>
                 </div>
               </div>

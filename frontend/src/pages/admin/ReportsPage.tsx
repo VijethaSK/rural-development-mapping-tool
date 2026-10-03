@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { useAuth } from '../../store/auth';
 import { apiFetch } from '../../api/client';
+import { formatPopulation } from '../../utils/populationDisplay.mjs';
 
 type PanchayatOption = { _id: string; name: string; district?: string };
 type Row = Record<string, any>;
@@ -14,7 +15,7 @@ type Report = {
   complaints: { total: number; open: number; closed: number; withCoordinates: number; byCategory: Row[]; byPriority: Row[]; byStatus: Row[]; hotspots: Row[] };
   maintenance: { total: number; statusCounts: Record<string, number>; allocatedBudget: number; actualCost: number };
   routes: { count: number; activeCount: number; totalDistanceKm: number; totalStops: number; routes: Row[] };
-  gaps: { analyzedAreas: number; underservedAreas: number; affectedPopulation: number; totalPopulation: number; criticalCount: number; highCount: number; topGaps: Row[] };
+  gaps: { analyzedAreas: number; underservedAreas: number; affectedPopulation: number | null; totalPopulation: number | null; criticalCount: number; highCount: number; topGaps: Row[] };
   budget: { ceiling: number; recommendedCost: number; remainingBudget: number; utilizationPercent: number; selectedCount: number; candidatesAnalyzed: number; excludedMissingCost: number; projects: Row[] };
 };
 
@@ -56,8 +57,8 @@ function makeCsv(report: Report) {
     ...report.routes.routes.map((item) => [item.name, item.status, item.distanceKm, item.durationMinutes, item.stopCount, item.generatedAt]),
     ['Route count', report.routes.count], ['Active routes', report.routes.activeCount], ['Total route distance km', report.routes.totalDistanceKm], ['Total route stops', report.routes.totalStops],
     [], ['Infrastructure gaps'], ['Area', 'Ward', 'Severity', 'Affected population', 'Nearest school km', 'Nearest road km'],
-    ...report.gaps.topGaps.map((item) => [item.name, item.ward, item.severity, item.affectedPopulation, item.distanceToNearestSchoolKm, item.distanceToNearestRoadKm]),
-    ['Analyzed areas', report.gaps.analyzedAreas], ['Underserved areas', report.gaps.underservedAreas], ['Affected population', report.gaps.affectedPopulation],
+    ...report.gaps.topGaps.map((item) => [item.name, item.ward, item.severity, formatPopulation(item.affectedPopulation), item.distanceToNearestSchoolKm, item.distanceToNearestRoadKm]),
+    ['Analyzed areas', report.gaps.analyzedAreas], ['Underserved areas', report.gaps.underservedAreas], ['Affected population', formatPopulation(report.gaps.affectedPopulation)], ['Total population', formatPopulation(report.gaps.totalPopulation)],
     [], ['Budget recommendations'], ['Project', 'Type', 'Ward', 'Priority', 'Score', 'Estimated cost', 'Reason'],
     ...report.budget.projects.map((item) => [item.name, item.type, item.ward, item.priority, item.score, item.estimatedCost, item.reason]),
     ['Budget ceiling', report.budget.ceiling], ['Recommended spend', report.budget.recommendedCost], ['Remaining budget', report.budget.remainingBudget],
@@ -178,7 +179,7 @@ export default function ReportsPage() {
         <Section title="8. Route summary"><div className="mb-3 flex flex-wrap gap-4 text-sm"><span>Routes <b>{report.routes.count}</b></span><span>Active <b>{report.routes.activeCount}</b></span><span>Distance <b>{report.routes.totalDistanceKm.toFixed(2)} km</b></span><span>Stops <b>{report.routes.totalStops}</b></span></div><Table headers={['Route', 'Status', 'Distance', 'Stops', 'Generated']} rows={report.routes.routes.map((item) => [item.name, title(item.status), `${item.distanceKm} km`, item.stopCount, new Date(item.generatedAt).toLocaleDateString()])} /></Section>
       </div>
 
-      <Section title="9. Infrastructure gaps"><p className="mb-3 text-sm text-slate-600">Analyzed {report.gaps.analyzedAreas} inhabited areas · {report.gaps.underservedAreas} underserved · population affected {report.gaps.affectedPopulation.toLocaleString()} of {report.gaps.totalPopulation.toLocaleString()} · critical {report.gaps.criticalCount} · high {report.gaps.highCount}</p><Table headers={['Area', 'Ward', 'Severity', 'Population', 'Nearest school', 'Nearest road']} rows={report.gaps.topGaps.map((item) => [item.name, item.ward || '—', title(item.severity), item.affectedPopulation, item.distanceToNearestSchoolKm == null ? '—' : `${Number(item.distanceToNearestSchoolKm).toFixed(2)} km`, item.distanceToNearestRoadKm == null ? '—' : `${Number(item.distanceToNearestRoadKm).toFixed(2)} km`])} empty="No underserved areas found in the current spatial analysis." /><p className="mt-3 text-xs text-slate-500">Current school/road coverage analysis (3 km school and 1 km road thresholds); date and infrastructure-type filters do not alter network coverage.</p></Section>
+      <Section title="9. Infrastructure gaps"><p className="mb-3 text-sm text-slate-600">Analyzed {report.gaps.analyzedAreas} inhabited areas · {report.gaps.underservedAreas} underserved · population affected {formatPopulation(report.gaps.affectedPopulation)} of {formatPopulation(report.gaps.totalPopulation)} · critical {report.gaps.criticalCount} · high {report.gaps.highCount}</p><Table headers={['Area', 'Ward', 'Severity', 'Population', 'Nearest school', 'Nearest road']} rows={report.gaps.topGaps.map((item) => [item.name, item.ward || '—', title(item.severity), formatPopulation(item.affectedPopulation), item.distanceToNearestSchoolKm == null ? '—' : `${Number(item.distanceToNearestSchoolKm).toFixed(2)} km`, item.distanceToNearestRoadKm == null ? '—' : `${Number(item.distanceToNearestRoadKm).toFixed(2)} km`])} empty="No underserved areas found in the current spatial analysis." /><p className="mt-3 text-xs text-slate-500">Current school/road coverage analysis (3 km school and 1 km road thresholds); date and infrastructure-type filters do not alter network coverage.</p></Section>
 
       <Section title="10. Budget recommendations"><div className="mb-3 flex flex-wrap gap-4 text-sm"><span>Budget <b>{money(report.budget.ceiling)}</b></span><span>Recommended <b>{money(report.budget.recommendedCost)}</b></span><span>Remaining <b>{money(report.budget.remainingBudget)}</b></span><span>Utilization <b>{report.budget.utilizationPercent}%</b></span><span>Projects <b>{report.budget.selectedCount}</b> / {report.budget.candidatesAnalyzed} cost-recorded candidates</span></div>{report.budget.excludedMissingCost > 0 && <p className="mb-3 text-xs text-slate-500">{report.budget.excludedMissingCost} asset(s) without a recorded maintenance/repair cost were excluded from recommendations.</p>}<Table headers={['Project', 'Type', 'Ward', 'Priority', 'Score', 'Estimated cost', 'Selection rationale']} rows={report.budget.projects.map((item) => [item.name, title(item.type), item.ward, item.priority, item.score, money(item.estimatedCost), item.reason])} /></Section>
     </article>}

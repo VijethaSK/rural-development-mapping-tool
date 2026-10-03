@@ -18,7 +18,7 @@ export interface UnderservedArea {
   ward?: string;
   center: Coordinate;
   polygonGeometry?: GeoPolygon;
-  populationAffected: number;
+  populationAffected: number | null;
   nearestSchool?: {
     id: string;
     name: string;
@@ -59,9 +59,9 @@ export interface AccessibilityMetrics {
   totalAnalyzedAreas: number;
   underservedAreasCount: number;
   percentageAreaUnderserved: number;
-  totalPopulation: number;
-  populationAffected: number;
-  percentagePopulationAffected: number;
+  totalPopulation: number | null;
+  populationAffected: number | null;
+  percentagePopulationAffected: number | null;
   averageDistanceToSchoolKm: number;
   averageDistanceToRoadKm: number;
   schoolThresholdKm: number;

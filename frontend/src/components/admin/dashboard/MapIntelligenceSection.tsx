@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { MapFeatureItem, ComplaintMapItem, GapSummaryItem } from '../../../types/adminDashboard';
 import HeatmapOverlay from '../../HeatmapOverlay';
 import { HeatmapPoint } from '../../../types/complaint';
+import { formatPopulation } from '../../../utils/populationDisplay.mjs';
 
 interface Props {
   infrastructure: MapFeatureItem[];
@@ -271,7 +272,7 @@ export function MapIntelligenceSection({ infrastructure, complaints, topGaps }: 
                         Nearest School: {g.distanceToNearestSchoolKm} km • Road: {g.distanceToNearestRoadKm} km
                       </span>
                       <span className="text-purple-700 font-semibold block mt-1">
-                        Population Affected: {g.affectedPopulation.toLocaleString()}
+                        Population Affected: {formatPopulation(g.affectedPopulation)}{g.affectedPopulation == null ? '' : ' citizens'}
                       </span>
                     </div>
                   </Popup>

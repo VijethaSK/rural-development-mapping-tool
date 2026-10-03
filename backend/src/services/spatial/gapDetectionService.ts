@@ -13,6 +13,7 @@ import { SpatialUtils } from './spatialUtils.js';
 import { School, Road } from '../../models/Infrastructure.js';
 import { Panchayat } from '../../models/Panchayat.js';
 import { getRoutingProvider } from '../routing/routingProvider.js';
+import { calculateGapPopulationMetrics, gapAreaPopulation } from './populationMetrics.js';
 
 export class GapDetectionService {
   /**
@@ -229,7 +230,7 @@ export class GapDetectionService {
           ward: hab.ward,
           center: habCoord,
           polygonGeometry: habitationPolygon,
-          populationAffected: hab.population || 0,
+          populationAffected: gapAreaPopulation('Habitation', hab.population),
           nearestSchool: nearestSchoolRes
             ? {
                 id: nearestSchoolRes.facility.id,
@@ -325,7 +326,7 @@ export class GapDetectionService {
           areaType: 'GridCell',
           center: cell.center,
           polygonGeometry: cell.polygon,
-          populationAffected: 0, // Grid sectors without habitation have 0 census population
+          populationAffected: gapAreaPopulation('GridCell'),
           nearestSchool: nearestSchool
             ? {
                 id: nearestSchool.facility.id,
@@ -392,8 +393,6 @@ export class GapDetectionService {
     const panchayat = await Panchayat.findOne(panchayatQuery).lean();
     const habitations = panchayat?.habitations || [];
 
-    const totalPopulation = habitations.reduce((sum, h) => sum + (h.population || 0), 0);
-
     // Run core detection
     const detection = await this.detectUnderservedAreas(options);
 
@@ -404,15 +403,12 @@ export class GapDetectionService {
       (a) => a.areaType === 'GridCell'
     );
 
-    const populationAffected = underservedHabitations.reduce(
-      (sum, h) => sum + (h.populationAffected || 0),
-      0
+    // Any unknown habitation population makes aggregate counts incomplete; retain known
+    // per-habitation values, but do not report a partial sum as the Panchayat total.
+    const populationMetrics = calculateGapPopulationMetrics(
+      habitations.map((habitation) => habitation.population),
+      underservedHabitations.map((habitation) => habitation.populationAffected)
     );
-
-    const percentagePopulationAffected =
-      totalPopulation > 0
-        ? Number(((populationAffected / totalPopulation) * 100).toFixed(1))
-        : 0;
 
     const percentageAreaUnderserved =
       detection.totalGridCells > 0
@@ -448,9 +444,7 @@ export class GapDetectionService {
       totalAnalyzedAreas: detection.totalAnalyzed,
       underservedAreasCount: detection.underservedAreas.length,
       percentageAreaUnderserved,
-      totalPopulation,
-      populationAffected,
-      percentagePopulationAffected,
+      ...populationMetrics,
       averageDistanceToSchoolKm,
       averageDistanceToRoadKm,
       schoolThresholdKm: schoolThreshold,
