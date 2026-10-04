@@ -175,6 +175,24 @@ function parseSourceCoordinate(value, bound) {
   return Number.isFinite(number) && Math.abs(number) <= bound ? number : null;
 }
 
+function coordinateMetadata(row, hasCoordinates) {
+  if (!hasCoordinates) {
+    return {
+      coordinatesVerified: false,
+      coordinateSource: 'UNAVAILABLE',
+      coordinateStatus: 'UNVERIFIED'
+    };
+  }
+
+  const isApproximateDemo = row.Coordinate_Status === 'APPROXIMATE_DEMO' &&
+    row.Coordinate_Source === 'PUBLIC_MAP_AREA_CENTER_PLUS_DETERMINISTIC_OFFSET';
+  return {
+    coordinatesVerified: false,
+    coordinateSource: isApproximateDemo ? 'PUBLIC_MAP_APPROXIMATE' : 'SOURCE_EXCEL',
+    coordinateStatus: isApproximateDemo ? 'APPROXIMATE' : 'UNVERIFIED'
+  };
+}
+
 function normalizedAppType(category, sourceType) {
   const categoryName = String(category || '').trim().toLowerCase();
   const typeName = String(sourceType || '').trim().toLowerCase();
@@ -290,6 +308,7 @@ export function makeInfrastructureDocument(item, workbookName, panchayatId, now 
   const latitude = parseSourceCoordinate(row.Latitude, 90);
   const longitude = parseSourceCoordinate(row.Longitude, 180);
   const hasBothCoordinates = latitude != null && longitude != null;
+  const coordinateMetadataFields = coordinateMetadata(row, hasBothCoordinates);
   const exactStatus = String(row.Status ?? '');
   const appStatus = normalizedSourceStatus(exactStatus);
   const normalizedType = normalizedAppType(row.Category, row.Type);
@@ -327,8 +346,7 @@ export function makeInfrastructureDocument(item, workbookName, panchayatId, now 
     sourceVintage: String(row['Source Vintage']),
     verificationNotes: String(row['Verification / Notes']),
     verificationRequired: verificationRequired(row),
-    coordinatesVerified: false,
-    coordinateSource: hasBothCoordinates ? 'SOURCE_EXCEL' : 'UNAVAILABLE',
+    ...coordinateMetadataFields,
     priorityScorable: false,
     missingDataFields,
     sourceData: row,
@@ -552,10 +570,12 @@ async function importSourceRecords(db, workbookPath, sheets, validation) {
     if (existing && !hasSourceCoordinates) {
       delete sourceFields.location;
       delete sourceFields.coordinateSource;
+      delete sourceFields.coordinateStatus;
       delete sourceFields.coordinatesVerified;
     } else if (existing?.coordinateSource === 'FIELD_SURVEY' && existing.coordinatesVerified) {
       delete sourceFields.location;
       delete sourceFields.coordinateSource;
+      delete sourceFields.coordinateStatus;
       delete sourceFields.coordinatesVerified;
     }
     const { createdAt: newInfrastructureCreatedAt, ...newInfrastructureFields } = doc;
