@@ -193,6 +193,223 @@ function coordinateMetadata(row, hasCoordinates) {
   };
 }
 
+function coordinateValuesFrom(record) {
+  return {
+    location: record?.location ?? null,
+    coordinateSource: record?.coordinateSource ?? null,
+    coordinateStatus: record?.coordinateStatus ?? null,
+    coordinatesVerified: typeof record?.coordinatesVerified === 'boolean' ? record.coordinatesVerified : null
+  };
+}
+
+function sameLocation(left, right) {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function rawCoordinateMetadata(row) {
+  return {
+    Coordinate_Status: row?.Coordinate_Status ?? null,
+    Coordinate_Source: row?.Coordinate_Source ?? null,
+    Coordinates_Verified: row?.Coordinates_Verified ?? null
+  };
+}
+
+export function buildCoordinateReconciliationReport(records, existingInfrastructure, validation = {}, panchayatById = new Map()) {
+  const existingBySourceKey = new Map(existingInfrastructure
+    .filter((record) => record.sourceKey)
+    .map((record) => [record.sourceKey, record]));
+  const existingByNaturalKey = new Map();
+  for (const record of existingInfrastructure) {
+    const panchayat = panchayatById.get(String(record.panchayatId));
+    if (panchayat) existingByNaturalKey.set(`${normalizedKeyPart(panchayat.name)}|${normalizedKeyPart(record.name)}`, record);
+  }
+  const duplicateRowNumbers = new Set((validation.duplicateRows || []).flatMap(({ firstRow, duplicateRow }) => [firstRow, duplicateRow]));
+  const rowsMissingIdentity = new Set((validation.rowsMissingIdentity || []).map(({ row }) => row));
+
+  return records.map((item) => {
+    const row = item.sourceData;
+    const sourceKey = stableSourceKey(row);
+    const existing = existingBySourceKey.get(sourceKey);
+    const naturalMatch = existing ? null : existingByNaturalKey.get(
+      `${normalizedKeyPart(row.Panchayat)}|${normalizedKeyPart(row['Infrastructure / Facility'])}`
+    );
+
+    const latitude = parseSourceCoordinate(row.Latitude, 90);
+    const longitude = parseSourceCoordinate(row.Longitude, 180);
+    const hasIncomingCoordinates = latitude != null && longitude != null;
+    const incomingLocation = hasIncomingCoordinates
+      ? { type: 'Point', coordinates: [longitude, latitude] }
+      : null;
+    const incomingMetadata = coordinateMetadata(row, hasIncomingCoordinates);
+    const matchedRecord = existing || naturalMatch;
+    const existingValues = matchedRecord ? coordinateValuesFrom(matchedRecord) : null;
+    const existingRawMetadata = matchedRecord ? rawCoordinateMetadata(matchedRecord.sourceData) : null;
+    const incomingRawMetadata = rawCoordinateMetadata(row);
+
+    let proposedValues;
+    let operation;
+    let decision;
+    let reason;
+    let existingStructuredCoordinateFieldsPreserved;
+    let locationWouldChange;
+    let blockerScope = null;
+
+    if (duplicateRowNumbers.has(item.rowNumber)) {
+      operation = 'BLOCKED';
+      blockerScope = 'GLOBAL_APPLY';
+      proposedValues = existingValues;
+      decision = 'BLOCKED_DUPLICATE_SOURCE_KEY';
+      reason = 'This row belongs to a duplicate sourceKey group; the importer blocks the source import when duplicate rows are present.';
+      existingStructuredCoordinateFieldsPreserved = null;
+      locationWouldChange = null;
+    } else if (rowsMissingIdentity.has(item.rowNumber)) {
+      operation = 'BLOCKED';
+      blockerScope = 'GLOBAL_APPLY';
+      proposedValues = existingValues;
+      decision = 'BLOCKED_MISSING_STABLE_IDENTITY';
+      reason = 'Required identity fields are missing; the importer blocks the source import rather than inserting this row.';
+      existingStructuredCoordinateFieldsPreserved = null;
+      locationWouldChange = null;
+    } else if ((validation.conflicts || []).length) {
+      operation = 'BLOCKED';
+      blockerScope = 'GLOBAL_APPLY_PRE_REPORT';
+      proposedValues = existingValues;
+      decision = 'PRE_REPORT_VALIDATION_ABORT';
+      reason = 'This state is not emitted by the CLI: runImporter throws on workbook validation conflicts before constructing a dry-run report.';
+      existingStructuredCoordinateFieldsPreserved = null;
+      locationWouldChange = null;
+    } else if (existing && existing.dataOrigin !== 'SOURCE_EXCEL') {
+      operation = 'BLOCKED';
+      blockerScope = 'GLOBAL_APPLY';
+      proposedValues = existingValues;
+      decision = 'BLOCKED_BY_SOURCE_KEY_CONFLICT';
+      reason = 'The matched record is not SOURCE_EXCEL-owned; the dry-run conflict blocks apply mode before this row is imported.';
+      existingStructuredCoordinateFieldsPreserved = null;
+      locationWouldChange = null;
+    } else if (naturalMatch) {
+      operation = 'BLOCKED';
+      blockerScope = 'GLOBAL_APPLY';
+      proposedValues = existingValues;
+      decision = 'BLOCKED_BY_NATURAL_KEY_CONFLICT';
+      reason = 'An existing infrastructure record has the same Panchayat and name but a different sourceKey; the dry-run conflict blocks apply mode.';
+      existingStructuredCoordinateFieldsPreserved = null;
+      locationWouldChange = null;
+    } else if (!existing) {
+      operation = 'INSERT';
+      proposedValues = {
+        location: incomingLocation,
+        coordinateSource: incomingMetadata.coordinateSource,
+        coordinateStatus: incomingMetadata.coordinateStatus,
+        coordinatesVerified: incomingMetadata.coordinatesVerified
+      };
+      decision = 'PROPOSE_INSERT';
+      reason = 'No existing sourceKey or natural-key collision was found, and the row passes the importer identity and duplicate checks.';
+      existingStructuredCoordinateFieldsPreserved = null;
+      locationWouldChange = null;
+    } else if (!hasIncomingCoordinates) {
+      operation = 'UPDATE';
+      proposedValues = existingValues;
+      decision = 'PRESERVE_EXISTING_COORDINATES';
+      reason = 'Incoming coordinates are missing or invalid, so apply mode omits the location and structured coordinate metadata from the update.';
+      existingStructuredCoordinateFieldsPreserved = true;
+      locationWouldChange = false;
+    } else if (existing.coordinateSource === 'FIELD_SURVEY' && existing.coordinatesVerified === true) {
+      operation = 'UPDATE';
+      proposedValues = existingValues;
+      decision = 'PRESERVE_VERIFIED_FIELD_SURVEY';
+      reason = 'Existing verified FIELD_SURVEY location and structured coordinate metadata are preserved by the apply-mode guard.';
+      existingStructuredCoordinateFieldsPreserved = true;
+      locationWouldChange = false;
+    } else {
+      operation = 'UPDATE';
+      proposedValues = {
+        location: incomingLocation,
+        coordinateSource: incomingMetadata.coordinateSource,
+        coordinateStatus: incomingMetadata.coordinateStatus,
+        coordinatesVerified: incomingMetadata.coordinatesVerified
+      };
+      decision = 'APPLY_INCOMING_COORDINATES';
+      reason = 'Valid incoming coordinates and coordinate metadata would be included in the source-field update.';
+      existingStructuredCoordinateFieldsPreserved = false;
+      locationWouldChange = !sameLocation(existing.location, incomingLocation);
+    }
+
+    return {
+      sourceRow: item.rowNumber,
+      panchayat: row.Panchayat ?? null,
+      infrastructure: row['Infrastructure / Facility'] ?? null,
+      sourceKey,
+      operation,
+      classification: operation === 'BLOCKED' ? blockerScope : 'ROW_LEVEL_PROPOSAL',
+      existingDocumentId: matchedRecord?._id == null ? null : String(matchedRecord._id),
+      existing: existingValues,
+      proposed: proposedValues,
+      decision,
+      locationWouldChange,
+      existingStructuredCoordinateFieldsPreserved,
+      sourceDataCoordinateMetadata: {
+        existing: existingRawMetadata,
+        proposed: operation === 'BLOCKED' ? existingRawMetadata : incomingRawMetadata,
+        wouldChange: operation === 'UPDATE' &&
+          JSON.stringify(existingRawMetadata) !== JSON.stringify(incomingRawMetadata),
+        wouldBeReplaced: operation === 'UPDATE' &&
+          JSON.stringify(existingRawMetadata) !== JSON.stringify(incomingRawMetadata)
+      },
+      reason
+    };
+  });
+}
+
+export function buildGlobalApplyAssessment(validation = {}, schemaConflicts = []) {
+  const blockers = [];
+  if (validation.conflicts?.length) {
+    blockers.push({
+      scope: 'GLOBAL_APPLY',
+      stage: 'PRE_REPORT_VALIDATION',
+      type: 'WORKBOOK_VALIDATION_FAILURE',
+      count: validation.conflicts.length,
+      message: 'The CLI throws on workbook validation conflicts before generating a dry-run report.'
+    });
+  }
+  if (validation.duplicateRows?.length) {
+    blockers.push({
+      scope: 'GLOBAL_APPLY',
+      stage: 'APPLY_IDENTITY_PRECHECK',
+      type: 'DUPLICATE_SOURCE_KEYS',
+      count: validation.duplicateRows.length,
+      message: 'Apply mode is halted for duplicate source keys before MongoDB connection, backup verification, index creation, or source-record writes.'
+    });
+  }
+  if (validation.rowsMissingIdentity?.length) {
+    blockers.push({
+      scope: 'GLOBAL_APPLY',
+      stage: 'APPLY_IDENTITY_PRECHECK',
+      type: 'MISSING_STABLE_IDENTITY',
+      count: validation.rowsMissingIdentity.length,
+      message: 'Apply mode is halted for rows missing stable identity before MongoDB connection, backup verification, index creation, or source-record writes.'
+    });
+  }
+  for (const message of schemaConflicts) {
+    const naturalKeyCollision = /Possible name collision with existing infrastructure/i.test(message);
+    blockers.push({
+      scope: 'GLOBAL_APPLY',
+      stage: 'DRY_RUN_ORCHESTRATION_GATE',
+      type: naturalKeyCollision ? 'NATURAL_KEY_COLLISION' : 'DATABASE_RECONCILIATION_CONFLICT',
+      message: naturalKeyCollision
+        ? `${message} This is detected by dry-run orchestration; the record-writing function itself only upserts by sourceKey.`
+        : message
+    });
+  }
+
+  return {
+    status: blockers.length ? 'GLOBAL_BLOCKERS_PRESENT' : 'NO_REPORTED_GLOBAL_BLOCKERS',
+    applySuccessVerified: false,
+    blockers,
+    note: 'Row-level INSERT/UPDATE entries are proposals only. This report does not prove apply mode will succeed.',
+    validationConflictBehavior: 'runImporter throws on a non-empty validation.conflicts array before constructing a dry-run report.'
+  };
+}
+
 function normalizedAppType(category, sourceType) {
   const categoryName = String(category || '').trim().toLowerCase();
   const typeName = String(sourceType || '').trim().toLowerCase();
@@ -386,12 +603,57 @@ function sanitizeMongoTarget(uri) {
   return `${parsed.protocol}//${parsed.hostname}${parsed.port ? `:${parsed.port}` : ''}/${parsed.pathname.replace(/^\//, '').split('/')[0]}`;
 }
 
-function assertTarget(uri) {
-  const parsed = new URL(uri);
-  const dbName = parsed.pathname.replace(/^\//, '').split('/')[0];
-  if (parsed.protocol !== 'mongodb:' || !['localhost', '127.0.0.1', '::1'].includes(parsed.hostname) || parsed.port !== '27017' || dbName !== 'rdmt') {
-    throw new Error('This importer is restricted to the approved local mongodb://localhost:27017/rdmt target.');
+export function validateRunMode({ apply = false, dryRun = false, allowIsolatedDryRunPort27018 = false } = {}) {
+  if (apply && dryRun) throw new Error('Choose either --dry-run or --apply, not both.');
+  if (allowIsolatedDryRunPort27018 && (!dryRun || apply)) {
+    throw new Error('--allow-isolated-dry-run-port-27018 is valid only with --dry-run and without --apply.');
   }
+  if (!apply && !dryRun) throw new Error('Choose --dry-run or --apply.');
+}
+
+export function assertApplyIdentityPrecheck(validation = {}) {
+  if (validation.duplicateRows?.length || validation.rowsMissingIdentity?.length) {
+    throw new Error('Import halted: resolve dry-run schema/identity conflicts before applying source rows.');
+  }
+}
+
+export async function withApplyIdentityPrecheck(validation, apply, continueRun) {
+  if (apply) assertApplyIdentityPrecheck(validation);
+  return continueRun();
+}
+
+export function assertTarget(uri, { apply = false, dryRun = false, allowIsolatedDryRunPort27018 = false } = {}) {
+  validateRunMode({ apply, dryRun, allowIsolatedDryRunPort27018 });
+
+  let parsed;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    throw new Error('Invalid MongoDB URI; expected an approved local rdmt target.');
+  }
+
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+  const dbName = parsed.pathname.replace(/^\//, '').split('/')[0];
+  const isApprovedDefaultTarget = parsed.protocol === 'mongodb:' &&
+    ['localhost', '127.0.0.1', '::1'].includes(hostname) &&
+    parsed.port === '27017' && dbName === 'rdmt';
+  if (isApprovedDefaultTarget && !allowIsolatedDryRunPort27018) return;
+
+  const isExactIsolatedTarget = uri === 'mongodb://127.0.0.1:27018/rdmt' &&
+    parsed.protocol === 'mongodb:' &&
+    hostname === '127.0.0.1' &&
+    parsed.port === '27018' &&
+    parsed.pathname === '/rdmt' &&
+    !parsed.username && !parsed.password && !parsed.search && !parsed.hash;
+  if (isExactIsolatedTarget && allowIsolatedDryRunPort27018 && dryRun && !apply) return;
+
+  if (allowIsolatedDryRunPort27018 && !isExactIsolatedTarget) {
+    throw new Error('--allow-isolated-dry-run-port-27018 only permits the exact isolated mongodb://127.0.0.1:27018/rdmt target.');
+  }
+  if (isExactIsolatedTarget) {
+    throw new Error('The isolated port-27018 target requires --dry-run and --allow-isolated-dry-run-port-27018; --apply is not permitted.');
+  }
+  throw new Error('This importer is restricted to approved local rdmt targets: localhost, 127.0.0.1, or ::1 on port 27017.');
 }
 
 async function collectionExists(db, name) {
@@ -430,7 +692,17 @@ export async function buildDryRunReport(db, workbookPath, sheets, validation, in
   const workbookName = path.basename(workbookPath);
   const existingPanchayats = await db.collection('panchayats').find({}, { projection: { name: 1, dataOrigin: 1, sourceKey: 1 } }).toArray();
   const panchayatById = new Map(existingPanchayats.map((item) => [String(item._id), item]));
-  const existingInfrastructure = await db.collection('infrastructures').find({}, { projection: { panchayatId: 1, name: 1, village: 1, sourceKey: 1, dataOrigin: 1 } }).toArray();
+  const existingInfrastructure = await db.collection('infrastructures').find({}, { projection: {
+    panchayatId: 1, name: 1, village: 1, sourceKey: 1, dataOrigin: 1, location: 1,
+    coordinateSource: 1, coordinateStatus: 1, coordinatesVerified: 1,
+    'sourceData.Coordinate_Status': 1, 'sourceData.Coordinate_Source': 1, 'sourceData.Coordinates_Verified': 1
+  } }).toArray();
+  const coordinateReconciliation = buildCoordinateReconciliationReport(
+    validation.records,
+    existingInfrastructure,
+    validation,
+    panchayatById
+  );
   const sourcePanchayatByName = new Map(validation.panchayatNames.map((name) => [name, existingPanchayats.find((item) => item.name === name)]));
   const panchayatCreates = [];
   const panchayatUpdates = [];
@@ -481,6 +753,8 @@ export async function buildDryRunReport(db, workbookPath, sheets, validation, in
   if (indexConflicts.duplicateAssignmentNumbers) conflicts.push(`Cannot add unique assignment number index: ${indexConflicts.duplicateAssignmentNumbers} duplicate group(s).`);
   if (indexConflicts.duplicateInfrastructureSourceKeys) conflicts.push(`Cannot add unique infrastructure source key index: ${indexConflicts.duplicateInfrastructureSourceKeys} duplicate group(s).`);
   if (indexConflicts.duplicatePanchayatSourceKeys) conflicts.push(`Cannot add unique Panchayat source key index: ${indexConflicts.duplicatePanchayatSourceKeys} duplicate group(s).`);
+  const uniqueSchemaConflicts = [...new Set(conflicts)];
+  const applyAssessment = buildGlobalApplyAssessment(validation, uniqueSchemaConflicts);
   return {
     mode: 'DRY_RUN_READ_ONLY',
     database: db.databaseName,
@@ -512,21 +786,28 @@ export async function buildDryRunReport(db, workbookPath, sheets, validation, in
     infrastructureToUpdate: infrastructureUpdates.length,
     infrastructureUpdateRows: infrastructureUpdates,
     recordsSkipped: validation.duplicateRows.length + validation.rowsMissingIdentity.length,
-    schemaConflicts: [...new Set(conflicts)],
+    schemaConflicts: uniqueSchemaConflicts,
+    applyAssessment,
     sourceRecordsWithOutsideOrNearbyStatus: validation.records.filter(({ sourceData }) => /not within village|outside village/i.test(String(sourceData.Status))).map(({ rowNumber, sourceData }) => ({ row: rowNumber, panchayat: sourceData.Panchayat, name: sourceData['Infrastructure / Facility'], sourceStatus: sourceData.Status })),
     currentDatabaseCounts: counts,
     currentIndexes: indexes,
     uniqueIndexConflicts: indexConflicts,
     proposedIndexes: indexPlan.map(([collection, key, options]) => ({ collection, key, ...options })),
     existingRecordsAffected,
+    reportType: 'PROPOSED_RECONCILIATION_NOT_APPLY_VERIFICATION',
+    coordinateReconciliation,
     syntheticRecordsPlanned: { complaints: 0, assignments: 0, routes: 0, users: 0 },
     varthurPreservation: 'No Varthur records are selected for update or deletion.',
     kerehalliSeed: 'Not run; server startup seed is now opt-in.'
   };
 }
 
-function parseArgs(argv) {
-  const args = { apply: argv.includes('--apply'), dryRun: argv.includes('--dry-run') };
+export function parseArgs(argv) {
+  const args = {
+    apply: argv.includes('--apply'),
+    dryRun: argv.includes('--dry-run'),
+    allowIsolatedDryRunPort27018: argv.includes('--allow-isolated-dry-run-port-27018')
+  };
   for (let index = 0; index < argv.length; index++) {
     if (argv[index] === '--workbook') args.workbook = argv[index + 1];
     if (argv[index] === '--backup-dir') args.backupDir = argv[index + 1];
@@ -618,19 +899,21 @@ async function createAndVerifyBackup(db, mongoUri, backupDir, currentCounts) {
   return resolvedBackup;
 }
 
-export async function runImporter({ workbookPath, uri, apply = false, backupDir } = {}) {
+export async function runImporter({ workbookPath, uri, apply = false, dryRun = false, allowIsolatedDryRunPort27018 = false, backupDir } = {}) {
+  validateRunMode({ apply, dryRun, allowIsolatedDryRunPort27018 });
   if (!workbookPath) throw new Error('Provide --workbook <path-to-xlsx>.');
   const absoluteWorkbook = path.resolve(workbookPath);
   await fs.access(absoluteWorkbook);
   const mongoUri = uri || process.env.MONGODB_URI;
   if (!mongoUri) throw new Error('MONGODB_URI is not configured.');
-  assertTarget(mongoUri);
+  assertTarget(mongoUri, { apply, dryRun, allowIsolatedDryRunPort27018 });
   const sheets = await readWorkbook(absoluteWorkbook);
   const validation = validateWorkbook(sheets);
   if (validation.conflicts.length) throw new Error(`Workbook validation failed: ${validation.conflicts.join(' ')}`);
-
-  mongoose.set('autoIndex', false);
-  await mongoose.connect(mongoUri, { autoIndex: false, serverSelectionTimeoutMS: 5000, readPreference: 'secondaryPreferred', readConcern: { level: 'majority' } });
+  await withApplyIdentityPrecheck(validation, apply, async () => {
+    mongoose.set('autoIndex', false);
+    await mongoose.connect(mongoUri, { autoIndex: false, serverSelectionTimeoutMS: 5000, readPreference: 'secondaryPreferred', readConcern: { level: 'majority' } });
+  });
   try {
     const db = mongoose.connection.db;
     if (!db || db.databaseName !== 'rdmt') throw new Error('Connected MongoDB database is not rdmt.');
@@ -652,8 +935,14 @@ export async function runImporter({ workbookPath, uri, apply = false, backupDir 
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.apply && !args.dryRun) throw new Error('Choose --dry-run or --apply.');
-  const report = await runImporter({ workbookPath: args.workbook, apply: args.apply, backupDir: args.backupDir });
+  validateRunMode(args);
+  const report = await runImporter({
+    workbookPath: args.workbook,
+    apply: args.apply,
+    dryRun: args.dryRun,
+    allowIsolatedDryRunPort27018: args.allowIsolatedDryRunPort27018,
+    backupDir: args.backupDir
+  });
   console.log(JSON.stringify({ databaseTarget: sanitizeMongoTarget(process.env.MONGODB_URI || ''), ...report }, null, 2));
 }
 
