@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, useMap } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import L from 'leaflet';
 import { RankedInfrastructure, PriorityLevel } from '../types/priority';
 import { HeatmapPoint, ComplaintCluster, ComplaintDetail } from '../types/complaint';
@@ -8,6 +11,7 @@ import { api, apiFetch } from '../api/client';
 import { countRoadRecords, filterMappedRoads, getRoadLineCoordinates } from '../utils/roadGeometry';
 import { commitMapDataIfCurrent, createMapBootstrapGuard, createMapRequestGate, deriveScopedMapCenter, runMapRequestIfCurrent } from '../utils/mapPageScope.mjs';
 import { isValidGapCenter, toLeafletPolygonPositions } from '../utils/gapGeometry.mjs';
+import { toFacilityMarkerPosition } from '../utils/facilityMarkerPosition.mjs';
 import { formatPopulation } from '../utils/populationDisplay.mjs';
 import HeatmapOverlay from '../components/HeatmapOverlay';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
@@ -1321,27 +1325,25 @@ export default function MapPage() {
             );
           })}
 
+          <MarkerClusterGroup
+            chunkedLoading
+            maxClusterRadius={45}
+            showCoverageOnHover={false}
+            zoomToBoundsOnClick
+            spiderfyOnMaxZoom
+            spiderfyDistanceMultiplier={1.5}
+          >
           {/* LAYER 2: SCHOOLS */}
           {schoolAssets.map((school) => {
-            let lat: number | undefined;
-            let lng: number | undefined;
-
-            if (school.location?.coordinates && school.location.coordinates.length >= 2) {
-              lng = school.location.coordinates[0];
-              lat = school.location.coordinates[1];
-            } else if (school.location?.lat != null && school.location?.lng != null) {
-              lat = school.location.lat;
-              lng = school.location.lng;
-            }
-
-            if (lat == null || lng == null) return null;
+            const position = toFacilityMarkerPosition(school.location);
+            if (!position) return null;
 
             const isHighlighted = layers.priorityHighlight && (school.priorityLevel === 'Critical' || school.priorityLevel === 'High');
 
             return (
               <Marker
                 key={school._id}
-                position={[lat, lng]}
+                position={position}
                 icon={createInfraIcon(school.type, school.priorityLevel, isHighlighted)}
                 eventHandlers={{
                   click: () => setInspectedAsset(school),
@@ -1407,25 +1409,15 @@ export default function MapPage() {
 
           {/* LAYER 3: OTHER INFRASTRUCTURE */}
           {otherAssets.map((asset) => {
-            let lat: number | undefined;
-            let lng: number | undefined;
-
-            if (asset.location?.coordinates && asset.location.coordinates.length >= 2) {
-              lng = asset.location.coordinates[0];
-              lat = asset.location.coordinates[1];
-            } else if (asset.location?.lat != null && asset.location?.lng != null) {
-              lat = asset.location.lat;
-              lng = asset.location.lng;
-            }
-
-            if (lat == null || lng == null) return null;
+            const position = toFacilityMarkerPosition(asset.location);
+            if (!position) return null;
 
             const isHighlighted = layers.priorityHighlight && (asset.priorityLevel === 'Critical' || asset.priorityLevel === 'High');
 
             return (
               <Marker
                 key={asset._id}
-                position={[lat, lng]}
+                position={position}
                 icon={createInfraIcon(asset.type, asset.priorityLevel, isHighlighted)}
                 eventHandlers={{
                   click: () => setInspectedAsset(asset),
@@ -1484,6 +1476,7 @@ export default function MapPage() {
               </Marker>
             );
           })}
+          </MarkerClusterGroup>
 
           {/* LAYER 4: COMPLAINTS (CLUSTERS & SINGLES) */}
           {complaintClusters.clusters.map((cluster) => (
