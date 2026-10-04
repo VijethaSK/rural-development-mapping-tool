@@ -17,6 +17,10 @@ export class GapDetectionController {
         computeNetworkDistance
       } = req.body;
       const panchayatId = resolvePanchayatScope(req, requestedPanchayatId);
+      if (!panchayatId) {
+        res.status(400).json({ error: 'Select a Panchayat before running gap analysis.' });
+        return;
+      }
 
       const result = await GapDetectionService.calculateAccessibility({
         panchayatId,
@@ -44,9 +48,13 @@ export class GapDetectionController {
     try {
       const { schoolThreshold, roadThreshold } = req.query;
       const panchayatId = resolvePanchayatScope(req, req.query.panchayatId);
+      if (!panchayatId) {
+        res.status(400).json({ error: 'Select a Panchayat before requesting gap analysis.' });
+        return;
+      }
 
       const result = await GapDetectionService.calculateAccessibility({
-        panchayatId: panchayatId as string,
+        panchayatId,
         schoolThresholdKm: schoolThreshold ? Number(schoolThreshold) : 3.0,
         roadThresholdKm: roadThreshold ? Number(roadThreshold) : 1.0,
         gridResolutionKm: 1.0, // faster resolution for quick overview

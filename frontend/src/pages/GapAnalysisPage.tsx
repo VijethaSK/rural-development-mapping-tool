@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon, Circle } from 'react-leaflet';
 import L from 'leaflet';
+import { useSearchParams } from 'react-router-dom';
 import {
   Coordinate,
   UnderservedArea,
@@ -9,8 +10,20 @@ import {
   GapAnalysisResult,
   GapSeverity
 } from '../types/gap';
-import { api } from '../api/client';
+import { api, apiAuth } from '../api/client';
+import { useAuth } from '../store/auth';
 import { formatPercentage, formatPopulation } from '../utils/populationDisplay.mjs';
+import {
+  applyGapAnalysisIfCurrent,
+  createGapAnalysisRequestGate,
+  deriveGapAnalysisMapCenter,
+  resolveInitialGapPanchayat,
+} from '../utils/gapAnalysisScope.mjs';
+
+interface PanchayatOption {
+  _id: string;
+  name: string;
+}
 
 // Custom icons
 const schoolIcon = L.divIcon({
@@ -40,14 +53,27 @@ const habitationIcon = (isUnderserved: boolean, severity: GapSeverity) => {
 };
 
 export default function GapAnalysisPage() {
+  const { token } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialPanchayatIdRef = useRef(searchParams.get('panchayatId'));
+  const [panchayats, setPanchayats] = useState<PanchayatOption[]>([]);
+  const [panchayatsLoading, setPanchayatsLoading] = useState<boolean>(true);
+  const [panchayatListError, setPanchayatListError] = useState<string | null>(null);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [selectedPanchayatId, setSelectedPanchayatId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const requestGateRef = useRef(createGapAnalysisRequestGate());
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
   // Configurable Thresholds (NOT hardcoded)
   const [schoolThresholdKm, setSchoolThresholdKm] = useState<number>(3.0);
   const [roadThresholdKm, setRoadThresholdKm] = useState<number>(1.0);
   const [gridResolutionKm, setGridResolutionKm] = useState<number>(0.8);
+  const analysisSettingsRef = useRef({ schoolThresholdKm, roadThresholdKm, gridResolutionKm });
+  analysisSettingsRef.current = { schoolThresholdKm, roadThresholdKm, gridResolutionKm };
 
   // Filter
   const [issueFilter, setIssueFilter] = useState<string>('All');
@@ -61,32 +87,134 @@ export default function GapAnalysisPage() {
   // Results
   const [result, setResult] = useState<GapAnalysisResult | null>(null);
 
-  const fetchGapAnalysis = async () => {
-    setAnalyzing(true);
-    setError(null);
-    try {
-      const res = await api<{ data: GapAnalysisResult }>('/api/gap-analysis/analyze', {
-        method: 'POST',
-        body: JSON.stringify({
-          schoolThresholdKm,
-          roadThresholdKm,
-          gridResolutionKm,
-          computeNetworkDistance: true,
-        }),
-      });
-      setResult(res.data);
-    } catch (err: any) {
-      console.error('Gap analysis error:', err);
-      setError(err.message || 'Failed to execute spatial gap analysis.');
-    } finally {
-      setAnalyzing(false);
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const lifecycleId = requestGateRef.current.activate();
+    return () => {
+      requestGateRef.current.deactivate(lifecycleId);
+    };
+  }, []);
 
   useEffect(() => {
-    fetchGapAnalysis();
+    let active = true;
+    requestGateRef.current.select(null);
+    setSelectedPanchayatId('');
+    setResult(null);
+    setError(null);
+    setSelectionError(null);
+    setPanchayatListError(null);
+    setPanchayatsLoading(true);
+    setLoading(true);
+
+    const loadPanchayats = async () => {
+      try {
+        const list = token
+          ? await apiAuth<PanchayatOption[]>('/panchayats', token)
+          : await api<PanchayatOption[]>('/panchayats');
+        if (!Array.isArray(list)) throw new Error('The Panchayat list response was invalid.');
+        if (!active) return;
+
+        setPanchayats(list);
+        const initial = resolveInitialGapPanchayat(list, initialPanchayatIdRef.current);
+        setSelectionError(initial.error);
+        requestGateRef.current.select(initial.selectedId || null);
+        setSelectedPanchayatId(initial.selectedId);
+
+        if (initial.selectedId && !initialPanchayatIdRef.current) {
+          initialPanchayatIdRef.current = initial.selectedId;
+          setSearchParams((current) => {
+            const next = new URLSearchParams(current);
+            next.set('panchayatId', initial.selectedId);
+            return next;
+          }, { replace: true });
+        }
+        if (!initial.selectedId) setLoading(false);
+      } catch (loadError: unknown) {
+        if (!active) return;
+        setPanchayatListError(loadError instanceof Error ? loadError.message : 'Failed to load Panchayats.');
+        setLoading(false);
+      } finally {
+        if (active) setPanchayatsLoading(false);
+      }
+    };
+
+    void loadPanchayats();
+    return () => {
+      active = false;
+    };
+  }, [token, setSearchParams]);
+
+  const runGapAnalysis = useCallback((panchayatId: string) => {
+    const request = requestGateRef.current.begin(panchayatId);
+    if (!request) return null;
+
+    const settings = analysisSettingsRef.current;
+    setResult(null);
+    setError(null);
+    setAnalyzing(true);
+    setLoading(true);
+
+    void (async () => {
+      try {
+        const options: RequestInit = {
+          method: 'POST',
+          body: JSON.stringify({
+            panchayatId,
+            schoolThresholdKm: settings.schoolThresholdKm,
+            roadThresholdKm: settings.roadThresholdKm,
+            gridResolutionKm: settings.gridResolutionKm,
+            computeNetworkDistance: true,
+          }),
+        };
+        const res = tokenRef.current
+          ? await apiAuth<{ data: GapAnalysisResult }>('/api/gap-analysis/analyze', tokenRef.current, options)
+          : await api<{ data: GapAnalysisResult }>('/api/gap-analysis/analyze', options);
+        applyGapAnalysisIfCurrent(requestGateRef.current, request, () => {
+          setResult(res.data);
+          setError(null);
+        });
+      } catch (analysisError: unknown) {
+        applyGapAnalysisIfCurrent(requestGateRef.current, request, () => {
+          setResult(null);
+          setError(analysisError instanceof Error ? analysisError.message : 'Failed to execute spatial gap analysis.');
+        });
+      } finally {
+        applyGapAnalysisIfCurrent(requestGateRef.current, request, () => {
+          setAnalyzing(false);
+          setLoading(false);
+        });
+      }
+    })();
+    return request;
   }, []);
+
+  useEffect(() => {
+    if (!selectedPanchayatId) {
+      setLoading(false);
+      return;
+    }
+    const request = runGapAnalysis(selectedPanchayatId);
+    return () => {
+      if (request) requestGateRef.current.invalidateIfCurrent(request);
+    };
+  }, [selectedPanchayatId, runGapAnalysis]);
+
+  const selectPanchayat = (panchayatId: string) => {
+    if (panchayatId && !panchayats.some((panchayat) => panchayat._id === panchayatId)) return;
+    requestGateRef.current.select(panchayatId || null);
+    setSelectedPanchayatId(panchayatId);
+    setResult(null);
+    setError(null);
+    setSelectionError(null);
+    setAnalyzing(false);
+    setLoading(Boolean(panchayatId));
+    initialPanchayatIdRef.current = panchayatId || null;
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (panchayatId) next.set('panchayatId', panchayatId);
+      else next.delete('panchayatId');
+      return next;
+    }, { replace: true });
+  };
 
   const metrics: AccessibilityMetrics | undefined = result?.metrics;
 
@@ -99,13 +227,7 @@ export default function GapAnalysisPage() {
     });
   }, [result, issueFilter, severityFilter]);
 
-  const mapCenter = useMemo(() => {
-    if (result && result.schoolBuffers.length > 0) {
-      return [result.schoolBuffers[0].center.lat, result.schoolBuffers[0].center.lng] as [number, number];
-    }
-    if (result?.underservedAreas.length) return [result.underservedAreas[0].center.lat, result.underservedAreas[0].center.lng] as [number, number];
-    return [0, 0] as [number, number];
-  }, [result]);
+  const mapCenter = useMemo(() => deriveGapAnalysisMapCenter(result), [result]);
 
   const getSeverityBadgeClass = (severity: GapSeverity) => {
     switch (severity) {
@@ -153,10 +275,32 @@ export default function GapAnalysisPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="min-w-56">
+            <label htmlFor="gap-analysis-panchayat" className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Panchayat for this analysis
+            </label>
+            <select
+              id="gap-analysis-panchayat"
+              value={selectedPanchayatId}
+              onChange={(event) => selectPanchayat(event.target.value)}
+              disabled={panchayatsLoading || panchayats.length === 0}
+              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg font-semibold text-slate-800 dark:text-white"
+            >
+              <option value="">{panchayatsLoading ? 'Loading Panchayats…' : 'Select Panchayat'}</option>
+              {panchayats.map((panchayat) => (
+                <option key={panchayat._id} value={panchayat._id}>{panchayat.name}</option>
+              ))}
+            </select>
+            {selectedPanchayatId && (
+              <div className="mt-1 text-xs text-slate-500">
+                Results scoped to {panchayats.find((panchayat) => panchayat._id === selectedPanchayatId)?.name}
+              </div>
+            )}
+          </div>
           <button
-            onClick={fetchGapAnalysis}
-            disabled={analyzing}
+            onClick={() => runGapAnalysis(selectedPanchayatId)}
+            disabled={analyzing || !selectedPanchayatId || panchayatsLoading}
             className={`px-4 py-2 text-sm font-bold rounded-lg text-white transition shadow-md flex items-center gap-2 ${
               analyzing
                 ? 'bg-slate-400 cursor-not-allowed'
@@ -168,6 +312,28 @@ export default function GapAnalysisPage() {
           </button>
         </div>
       </div>
+
+      {panchayatsLoading && <div role="status" className="text-sm text-slate-500">Loading accessible Panchayats…</div>}
+      {panchayatListError && (
+        <div role="alert" className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded-xl">
+          Could not load Panchayats: {panchayatListError}
+        </div>
+      )}
+      {!panchayatsLoading && panchayats.length === 0 && !panchayatListError && (
+        <div role="status" className="p-4 bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-xl">
+          No Panchayats are available to this account.
+        </div>
+      )}
+      {selectionError && (
+        <div role="alert" className="p-4 bg-amber-50 border border-amber-300 text-amber-900 text-sm rounded-xl">
+          {selectionError}
+        </div>
+      )}
+      {!panchayatsLoading && panchayats.length > 1 && !selectedPanchayatId && !selectionError && (
+        <div role="status" className="p-4 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl">
+          Select a Panchayat to run scoped gap analysis.
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded-xl">
@@ -376,7 +542,9 @@ export default function GapAnalysisPage() {
       <div className="space-y-5">
         {/* Interactive Leaflet GIS Map */}
         <div className="relative h-[480px] rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md">
+          {mapCenter ? (
           <MapContainer
+            key={selectedPanchayatId}
             center={mapCenter}
             zoom={13}
             style={{ height: '100%', width: '100%' }}
@@ -514,9 +682,22 @@ export default function GapAnalysisPage() {
                   </Marker>
                 ))}
           </MapContainer>
+          ) : (
+            <div role="status" className="h-full flex items-center justify-center bg-slate-50 dark:bg-slate-900 px-6 text-center text-sm text-slate-600 dark:text-slate-300">
+              {loading
+                ? 'Loading the selected Panchayat’s analysis…'
+                : error
+                  ? 'Map unavailable because this Panchayat’s analysis failed.'
+                  : result?.spatialAnalysisAvailable === false
+                  ? 'Map unavailable: this Panchayat has no eligible spatial data or usable coordinates.'
+                  : selectedPanchayatId
+                    ? 'Map unavailable: no valid coordinates were returned for this analysis.'
+                    : 'Select a Panchayat to view its gap analysis map.'}
+            </div>
+          )}
 
           {/* Map Legend */}
-          <div className="absolute bottom-4 right-3 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 text-[11px] space-y-1.5">
+          {mapCenter && <div className="absolute bottom-4 right-3 z-[1000] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 text-[11px] space-y-1.5">
             <div className="font-bold text-slate-800 dark:text-slate-200 mb-1">Spatial Gap Legend</div>
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-blue-500 border border-blue-300" />
@@ -537,7 +718,7 @@ export default function GapAnalysisPage() {
             <div className="border-t pt-1 mt-1 text-[10px] text-slate-500">
               🏘️ Village Habitation | 🏫 Public School
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Filters and Underserved Areas Detailed Table */}
@@ -595,7 +776,17 @@ export default function GapAnalysisPage() {
                 {filteredUnderservedAreas.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-8 text-center text-slate-500">
-                      No underserved gaps detected with current filter and threshold parameters.
+                      {!selectedPanchayatId
+                        ? 'Select a Panchayat to view gap results.'
+                        : loading
+                          ? 'Loading this Panchayat’s gap analysis…'
+                          : error
+                            ? 'Analysis failed; no results are available for this request.'
+                            : result?.spatialAnalysisAvailable === false
+                              ? 'No eligible spatial data is available for this Panchayat.'
+                              : result
+                                ? 'No underserved gaps detected with current filter and threshold parameters.'
+                                : 'Run the analysis to view gap results.'}
                     </td>
                   </tr>
                 ) : (
