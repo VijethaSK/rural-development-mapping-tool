@@ -23,50 +23,99 @@ import { apiAuth } from './api/client';
 
 function Nav({ theme, onToggle }: { theme: 'light'|'dark'; onToggle: () => void }) {
   const { token, user, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navItems = [
+    { to: '/map', label: 'Map' },
+    { to: '/priorities', label: 'Priorities' },
+    { to: '/routes', label: 'Route Optimizer' },
+    { to: '/gaps', label: 'Gap Analysis' },
+    { to: '/heatmap', label: 'Heatmap' },
+    { to: '/budget', label: 'Budget' },
+    { to: '/pdo/work', label: 'My Work' },
+    { to: '/complaints', label: 'Grievances' },
+    { to: '/schools', label: 'Schools' },
+    { to: '/roads', label: 'Roads' },
+    { to: '/report', label: 'Report Issue' },
+    ...(token && user?.role === 'admin' ? [{ to: '/admin/reports', label: 'Reports' }] : []),
+    ...(token && user?.role !== 'pdo' && user?.role !== 'citizen' ? [{ to: '/admin', label: 'Dashboard' }] : []),
+    ...(token && user?.role !== 'citizen' ? [{ to: '/admin/issues', label: 'Issues' }] : [])
+  ];
+
+  const renderLinks = (mobile = false) => navItems.map((item) => (
+    <NavLink
+      key={item.to}
+      to={item.to}
+      onClick={mobile ? () => setMobileMenuOpen(false) : undefined}
+      className={({ isActive }) => `app-nav-link ${mobile
+        ? 'block rounded-lg px-3 py-2.5 text-sm font-medium'
+        : 'rounded-md px-1 py-2 text-[13px] font-medium'}${isActive ? ' app-nav-link-active' : ''}`}
+    >
+      {item.label}
+    </NavLink>
+  ));
+
   return (
-    <div className="app-header sticky top-0 z-20 bg-white/80 backdrop-blur border-b">
-      <div className="max-w-6xl mx-auto flex items-center justify-between p-4">
-        <div className="flex gap-4 items-center flex-wrap">
-          <NavLink to="/" className={({ isActive }) => (isActive ? "font-semibold text-blue-600" : "font-semibold")}>RDMT</NavLink>
-          <NavLink to="/map" className={({ isActive }) => (isActive ? "text-blue-600" : "")}>Map</NavLink>
-          <NavLink to="/priorities" className={({ isActive }) => (isActive ? "text-blue-600 font-semibold" : "")}>Priorities</NavLink>
-          <NavLink to="/routes" className={({ isActive }) => (isActive ? "text-blue-600 font-semibold" : "")}>Route Optimizer</NavLink>
-          <NavLink to="/gaps" className={({ isActive }) => (isActive ? "text-blue-600 font-semibold" : "")}>Gap Analysis</NavLink>
-          <NavLink to="/heatmap" className={({ isActive }) => (isActive ? "text-blue-600 font-semibold" : "")}>Heatmap</NavLink>
-          <NavLink to="/budget" className={({ isActive }) => (isActive ? "text-blue-600 font-semibold" : "")}>Budget</NavLink>
-          <NavLink to="/pdo/work" className={({ isActive }) => (isActive ? "text-blue-600 font-bold" : "text-slate-700 font-medium")}>My Work</NavLink>
-          <NavLink to="/complaints" className={({ isActive }) => (isActive ? "text-blue-600 font-bold" : "text-slate-700 font-medium")}>Grievances</NavLink>
-          <NavLink to="/schools" className={({ isActive }) => (isActive ? "text-blue-600" : "")}>Schools</NavLink>
-          <NavLink to="/roads" className={({ isActive }) => (isActive ? "text-blue-600" : "")}>Roads</NavLink>
-          <NavLink to="/report" className={({ isActive }) => (isActive ? "text-blue-600" : "")}>Report Issue</NavLink>
-        </div>
-        <div className="flex gap-3 items-center">
-          <button onClick={onToggle} className="btn px-2 py-1 border rounded">{theme === 'dark' ? 'Light' : 'Dark'}</button>
-          {token ? (
-            <>
-            {user?.role === 'admin' && <NavLink to="/admin/reports" className={({ isActive }) => (isActive ? "text-blue-600 font-semibold" : "")}>Reports</NavLink>}
-            {user?.role === 'pdo' ? (
-              <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-800 rounded-md font-semibold">
-                PDO: {user.name}
+    <header className="app-header sticky top-0 z-20 border-b bg-white/90 backdrop-blur">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6">
+        <div className="flex min-h-16 items-center gap-4">
+          <NavLink to="/" className="app-brand shrink-0 rounded-md text-lg font-bold tracking-tight" aria-label="RDMT home">
+            RDMT
+          </NavLink>
+
+          <nav className="hidden min-w-0 flex-1 items-center justify-center gap-x-2 whitespace-nowrap xl:flex 2xl:gap-x-3" aria-label="Main navigation">
+            {renderLinks()}
+          </nav>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            {token && (user?.role === 'pdo' || user?.role === 'citizen') && (
+              <span className={`hidden 2xl:inline-flex rounded-lg px-2.5 py-1.5 text-xs font-semibold ${user.role === 'pdo' ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-100 text-sky-800'}`}>
+                {user.role === 'pdo' ? 'PDO' : 'Citizen'}: {user.name}
               </span>
-            ) : user?.role === 'citizen' ? (
-              <span className="text-xs px-2 py-1 bg-sky-100 text-sky-800 rounded-md font-semibold">
-                👤 {user.name}
-              </span>
+            )}
+            <button
+              type="button"
+              onClick={onToggle}
+              className="app-header-action rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:text-sm"
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            >
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
+            {token ? (
+              <button type="button" onClick={logout} className="app-logout rounded-lg px-2 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 sm:px-3 sm:text-sm">
+                Logout
+              </button>
             ) : (
-              <NavLink to="/admin" className={({ isActive }) => (isActive ? "text-blue-600" : "")}>Dashboard</NavLink>
+              <NavLink to="/login" className="app-signin rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:px-4 sm:text-sm">
+                Sign In
+              </NavLink>
             )}
-            {user?.role !== 'citizen' && (
-              <NavLink to="/admin/issues" className={({ isActive }) => (isActive ? "text-blue-600" : "")}>Issues</NavLink>
-            )}
-            <button onClick={logout} className="text-red-600">Logout</button>
-            </>
-          ) : (
-          <NavLink to="/login" className={({ isActive }) => (isActive ? "text-blue-600" : "")}>Sign In</NavLink>
-          )}
+            <button
+              type="button"
+              className="app-header-action rounded-lg border px-3 py-2 text-sm font-semibold xl:hidden"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-main-navigation"
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              onClick={() => setMobileMenuOpen((open) => !open)}
+            >
+              {mobileMenuOpen ? 'Close' : 'Menu'}
+            </button>
+          </div>
         </div>
+
+        {mobileMenuOpen && (
+          <nav id="mobile-main-navigation" className="app-mobile-menu border-t py-3 xl:hidden" aria-label="Main navigation">
+            {token && user && (
+              <p className="landing-muted px-3 pb-2 text-xs font-medium">
+                Signed in as {user.name} · {user.role}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {renderLinks(true)}
+            </div>
+          </nav>
+        )}
       </div>
-    </div>
+    </header>
   );
 }
 
