@@ -12,7 +12,7 @@ import {
 } from '../types/gap';
 import { api, apiAuth } from '../api/client';
 import { useAuth } from '../store/auth';
-import { formatPercentage, formatPopulation } from '../utils/populationDisplay.mjs';
+import { formatPercentage, formatPopulation, formatUnderservedHabitationsSummary } from '../utils/populationDisplay.mjs';
 import {
   applyGapAnalysisIfCurrent,
   createGapAnalysisRequestGate,
@@ -399,7 +399,7 @@ export default function GapAnalysisPage() {
               {formatPercentage(metrics.percentagePopulationAffected)} of Panchayat
             </div>
             <div className="mt-1 text-[10px] text-purple-600/80">
-              Population in underserved habitations: {formatPopulation(metrics.populationInUnderservedHabitations)}{metrics.populationInUnderservedHabitations == null ? '' : ' citizens'}
+              {formatUnderservedHabitationsSummary(metrics.populationAffected, metrics.populationInUnderservedHabitations)}
             </div>
           </div>
 

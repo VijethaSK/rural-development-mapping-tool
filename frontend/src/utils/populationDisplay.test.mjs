@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { formatPercentage, formatPopulation } from './populationDisplay.mjs';
+import { formatPercentage, formatPopulation, formatUnderservedHabitationsSummary } from './populationDisplay.mjs';
 
 test('population display distinguishes unavailable values from explicit zero', () => {
   assert.equal(formatPopulation(null), 'Not available');
@@ -14,6 +14,19 @@ test('population percentage is unavailable when its population denominator is un
   assert.equal(formatPercentage(null), 'Not available');
   assert.equal(formatPercentage(0), '0%');
   assert.equal(formatPercentage(25.5), '25.5%');
+});
+
+test('affected population summary says unavailable when the aggregate is unavailable', () => {
+  const text = formatUnderservedHabitationsSummary(null, 0);
+  assert.equal(text, 'Population data unavailable');
+  assert.doesNotMatch(text, /0 citizens/);
+});
+
+test('affected population summary preserves a genuine zero aggregate and habitation count', () => {
+  assert.equal(
+    formatUnderservedHabitationsSummary(0, 0),
+    'Population in underserved habitations: 0 citizens'
+  );
 });
 
 test('print and CSV report paths use the same null-preserving population formatter', () => {
@@ -39,7 +52,7 @@ test('gap-analysis cards, popups, tables, and dashboard views use null-aware for
   const dashboardMap = read('../components/admin/dashboard/MapIntelligenceSection.tsx');
 
   assert.match(gapAnalysisPage, /formatPopulation\(metrics\.populationAffected\)/);
-  assert.match(gapAnalysisPage, /Population in underserved habitations: \{formatPopulation\(metrics\.populationInUnderservedHabitations\)\}/);
+  assert.match(gapAnalysisPage, /formatUnderservedHabitationsSummary\(metrics\.populationAffected, metrics\.populationInUnderservedHabitations\)/);
   assert.match(gapAnalysisPage, /formatPercentage\(metrics\.percentagePopulationAffected\)/);
   assert.match(gapAnalysisPage, /formatPopulation\(hab\.populationAffected\)/);
   assert.match(gapAnalysisPage, /formatPopulation\(area\.populationAffected\)/);
