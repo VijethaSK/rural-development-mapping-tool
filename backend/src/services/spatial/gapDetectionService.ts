@@ -15,6 +15,44 @@ import { Panchayat } from '../../models/Panchayat.js';
 import { getRoutingProvider } from '../routing/routingProvider.js';
 import { calculateOverallGapPopulationMetrics, gapAreaPopulation } from './populationMetrics.js';
 
+function formatFiniteDistanceKm(distanceKm: number): string {
+  return Number.isFinite(distanceKm) ? `${distanceKm.toFixed(1)} km` : 'unavailable';
+}
+
+function formatRoadDistanceNote(distanceKm: number | undefined, thresholdKm: number): string {
+  if (distanceKm == null || !Number.isFinite(distanceKm)) {
+    return 'Road distance unavailable (no usable road geometry)';
+  }
+  return `nearest road is ${distanceKm.toFixed(1)} km (threshold: ${thresholdKm} km)`;
+}
+
+export function buildHabitationGapNotes(
+  name: string,
+  schoolDistanceKm: number,
+  schoolThresholdKm: number,
+  networkDistanceKm: number | undefined,
+  roadDistanceKm: number | undefined,
+  roadThresholdKm: number
+): string {
+  const networkNote = networkDistanceKm != null && Number.isFinite(networkDistanceKm)
+    ? `, network road travel: ${networkDistanceKm} km`
+    : '';
+  return `${name} is underserved: nearest school is ${formatFiniteDistanceKm(schoolDistanceKm)} (threshold: ${schoolThresholdKm} km)${networkNote}; ${formatRoadDistanceNote(roadDistanceKm, roadThresholdKm)}.`;
+}
+
+export function buildGridCellGapNotes(
+  id: string,
+  schoolDistanceKm: number,
+  schoolThresholdKm: number,
+  roadDistanceKm: number | undefined,
+  roadThresholdKm: number
+): string {
+  const roadNote = roadDistanceKm != null && Number.isFinite(roadDistanceKm)
+    ? `Road gap = ${roadDistanceKm.toFixed(1)} km (threshold: ${roadThresholdKm} km)`
+    : 'Road distance unavailable (no usable road geometry)';
+  return `Sector ${id} lies beyond spatial threshold: School gap = ${formatFiniteDistanceKm(schoolDistanceKm)} (threshold: ${schoolThresholdKm} km), ${roadNote}.`;
+}
+
 export class GapDetectionService {
   /**
    * Reusable function: Calculate geographic geodesic distance between two points in km.
@@ -257,11 +295,14 @@ export class GapDetectionService {
           primaryIssue,
           overallSeverity,
           distanceToThresholdRatio: Number(maxRatio.toFixed(2)),
-          notes: `${hab.name} is underserved: nearest school is ${schoolDistKm.toFixed(
-            1
-          )} km (threshold: ${schoolThreshold} km)${
-            networkDistKm ? `, network road travel: ${networkDistKm} km` : ''
-          }; nearest road is ${roadDistKm.toFixed(1)} km (threshold: ${roadThreshold} km).`
+          notes: buildHabitationGapNotes(
+            hab.name,
+            schoolDistKm,
+            schoolThreshold,
+            networkDistKm,
+            nearestRoadRes?.distanceKm,
+            roadThreshold
+          )
         });
       }
     }
@@ -351,9 +392,13 @@ export class GapDetectionService {
           primaryIssue,
           overallSeverity,
           distanceToThresholdRatio: Number(maxRatio.toFixed(2)),
-          notes: `Sector ${cell.id} lies beyond spatial threshold: School gap = ${schoolDistKm.toFixed(
-            1
-          )} km, Road gap = ${roadDistKm.toFixed(1)} km.`
+          notes: buildGridCellGapNotes(
+            cell.id,
+            schoolDistKm,
+            schoolThreshold,
+            nearestRoad?.distanceKm,
+            roadThreshold
+          )
         });
       }
     }
