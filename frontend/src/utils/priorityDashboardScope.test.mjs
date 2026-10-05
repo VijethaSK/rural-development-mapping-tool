@@ -5,10 +5,13 @@ import {
   buildPriorityRequestPath,
   createPriorityRequestGate,
   filterAndSortPriorityItems,
+  getPriorityAvailabilityDisplay,
   getPriorityDisplaySummary,
   getPriorityEmptyState,
+  getUnavailablePriorityItems,
   parsePriorityResponse,
   resolveInitialPriorityPanchayat,
+  shouldShowUnavailablePrioritySection,
   updatePrioritySearchParams,
 } from './priorityDashboardScope.mjs';
 
@@ -66,6 +69,33 @@ assert.deepEqual(filterAndSortPriorityItems([scoredHigh, scoredZero], {
   typeFilter: 'All', priorityFilter: 'All', searchTerm: '', sortBy: 'population'
 }).map((item) => item._id), ['high', 'zero'], 'sort by population remains functional');
 
+assert.deepEqual(getUnavailablePriorityItems(response.items).map((item) => item._id), ['unknown'],
+  'unavailable records are displayed separately and never included in the ranked list');
+assert.equal(shouldShowUnavailablePrioritySection({ loading: false, error: null, items: response.items }), true);
+assert.equal(shouldShowUnavailablePrioritySection({ loading: true, error: null, items: response.items }), false,
+  'loading is not presented as a data-readiness result');
+assert.equal(shouldShowUnavailablePrioritySection({ loading: false, error: 'API unavailable', items: response.items }), false,
+  'API failure is not presented as a data-readiness result');
+assert.equal(shouldShowUnavailablePrioritySection({ loading: false, error: null, items: [scoredHigh, scoredZero] }), false,
+  'scored Varthur-like records preserve the existing ranked behavior');
+
+const readiness = {
+  eligible: false,
+  reasonCode: 'SOURCE_DATA_REVIEW_REQUIRED',
+  reason: 'Review this source record.',
+  missingScoringInputs: [{ code: 'condition', label: 'Condition' }, { code: 'populationServed', label: 'Population served' }],
+  dataQualityWarnings: [{ code: 'APPROXIMATE_COORDINATES', message: 'Coordinates are approximate.' }],
+  coordinateProvenance: { source: 'PUBLIC_MAP_APPROXIMATE', status: 'APPROXIMATE', verified: false }
+};
+const readinessDisplay = getPriorityAvailabilityDisplay(readiness);
+assert.equal(readinessDisplay.hasStructuredAvailability, true);
+assert.deepEqual(readinessDisplay.missingScoringInputs.map((input) => input.label), ['Condition', 'Population served']);
+assert.deepEqual(readinessDisplay.dataQualityWarnings.map((warning) => warning.message), ['Coordinates are approximate.']);
+assert.match(readinessDisplay.reason, /Review this source record/);
+assert.equal(getPriorityAvailabilityDisplay(undefined).hasStructuredAvailability, false);
+assert.equal(getPriorityAvailabilityDisplay(undefined).missingScoringInputs.length, 0,
+  'older API responses safely show no structured details without making up missing-field reasons');
+
 assert.equal(getPriorityEmptyState({ selectedPanchayat: false, panchayatCount: 0, selectionError: null, items: [], stats: null, scoredCount: 0, filteredCount: 0 }), 'no-panchayats');
 assert.equal(getPriorityEmptyState({ selectedPanchayat: false, panchayatCount: 2, selectionError: null, items: [], stats: null, scoredCount: 0, filteredCount: 0 }), 'select-panchayat');
 assert.equal(getPriorityEmptyState({ selectedPanchayat: true, panchayatCount: 2, selectionError: null, items: [], stats: { ...stats, total: 0 }, scoredCount: 0, filteredCount: 0 }), 'no-assets');
@@ -98,6 +128,8 @@ assert.equal(gate.deactivate(lifecycle), true);
 
 const page = readFileSync(new URL('../pages/PriorityDashboardPage.tsx', import.meta.url), 'utf8');
 const configModal = readFileSync(new URL('../components/PriorityConfigModal.tsx', import.meta.url), 'utf8');
+const availabilityComponent = readFileSync(new URL('../components/PriorityAvailabilityDetails.tsx', import.meta.url), 'utf8');
+const explanationModal = readFileSync(new URL('../components/ScoreExplanationModal.tsx', import.meta.url), 'utf8');
 assert.match(page, /useSearchParams/);
 assert.match(page, /apiAuth<PanchayatOption\[]>\('\/panchayats', token\)/);
 assert.match(page, /buildPriorityRequestPath\(panchayatId\)/);
@@ -107,6 +139,13 @@ assert.match(page, /resolveInitialPriorityPanchayat/);
 assert.match(page, /updatePrioritySearchParams/);
 assert.match(page, /setAssets\(\[\]\);\s*setStats\(null\)/);
 assert.match(page, /filterAndSortPriorityItems\(assets/);
+assert.match(page, /Not Yet Scoreable/);
+assert.match(page, /<PriorityAvailabilityDetails availability=\{asset\.priorityAvailability\}/);
+assert.match(availabilityComponent, /Missing data preventing priority scoring/);
+assert.match(availabilityComponent, /Coordinate \/ data-quality warnings/);
+assert.match(availabilityComponent, /A detailed scoring-input assessment is unavailable/);
+assert.match(explanationModal, /<PriorityAvailabilityDetails availability=\{asset\.priorityAvailability\}/,
+  'the explanation modal reuses the same structured availability details');
 assert.match(page, /panchayatId=\{selectedPanchayatId\}/, 'weight configuration receives the current Panchayat scope');
 assert.match(configModal, /apiAuth<PriorityConfig[^\n]*>\(url, token\)/);
 assert.match(configModal, /parsePriorityConfigResponse\(data\)/, 'configuration is validated before successful-load state is set');

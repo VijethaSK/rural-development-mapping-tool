@@ -59,6 +59,38 @@ export function isScoredPriority(item) {
     item.priorityLevel !== 'Unavailable';
 }
 
+export function getUnavailablePriorityItems(items) {
+  return items.filter((item) => !isScoredPriority(item));
+}
+
+export function shouldShowUnavailablePrioritySection({ loading, error, items }) {
+  return !loading && !error && getUnavailablePriorityItems(items).length > 0;
+}
+
+export function getPriorityAvailabilityDisplay(availability) {
+  const hasStructuredAvailability = Boolean(availability && typeof availability === 'object' &&
+    Array.isArray(availability.missingScoringInputs) && Array.isArray(availability.dataQualityWarnings));
+  const missingScoringInputs = Array.isArray(availability?.missingScoringInputs)
+    ? availability.missingScoringInputs.filter((item) => item && typeof item.code === 'string' && typeof item.label === 'string')
+    : [];
+  const dataQualityWarnings = Array.isArray(availability?.dataQualityWarnings)
+    ? availability.dataQualityWarnings.filter((item) => item && typeof item.code === 'string' && typeof item.message === 'string')
+    : [];
+  const coordinateProvenance = availability?.coordinateProvenance && typeof availability.coordinateProvenance === 'object'
+    ? availability.coordinateProvenance
+    : null;
+
+  return {
+    hasStructuredAvailability,
+    reason: typeof availability?.reason === 'string' && availability.reason.trim()
+      ? availability.reason
+      : 'Detailed scoring-readiness reasons are unavailable for this record.',
+    missingScoringInputs,
+    dataQualityWarnings,
+    coordinateProvenance
+  };
+}
+
 export function getPriorityDisplaySummary(items, stats) {
   const scoredCount = items.filter(isScoredPriority).length;
   const derivedUnscoredCount = Math.max(0, items.length - scoredCount);

@@ -4,12 +4,15 @@ import { RankedInfrastructure, PriorityStats, RankedPriorityLevel } from '../typ
 import { api, apiAuth } from '../api/client';
 import { useAuth } from '../store/auth';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
+import PriorityAvailabilityDetails from '../components/PriorityAvailabilityDetails';
 import PriorityConfigModal from '../components/PriorityConfigModal';
 import {
   applyPriorityResultIfCurrent,
   buildPriorityRequestPath,
   createPriorityRequestGate,
   filterAndSortPriorityItems,
+  getUnavailablePriorityItems,
+  shouldShowUnavailablePrioritySection,
   getPriorityDisplaySummary,
   getPriorityEmptyState,
   parsePriorityResponse,
@@ -184,6 +187,8 @@ export default function PriorityDashboardPage() {
   const filteredAssets = useMemo(() => filterAndSortPriorityItems(assets, {
     typeFilter, priorityFilter, searchTerm, sortBy
   }), [assets, typeFilter, priorityFilter, searchTerm, sortBy]);
+  const unavailableAssets = useMemo(() => getUnavailablePriorityItems(assets), [assets]);
+  const showUnavailableSection = shouldShowUnavailablePrioritySection({ loading, error, items: assets });
 
   const displaySummary = useMemo(() => stats ? getPriorityDisplaySummary(assets, stats) : null, [assets, stats]);
   const emptyState = getPriorityEmptyState({
@@ -650,6 +655,47 @@ export default function PriorityDashboardPage() {
           </div>
         )}
       </div>
+
+      {showUnavailableSection && (
+        <section className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm dark:border-amber-900/60 dark:bg-slate-800" aria-labelledby="unscored-priority-heading">
+          <div className="mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 id="unscored-priority-heading" className="text-lg font-bold text-slate-900 dark:text-white">
+                Not Yet Scoreable <span className="ml-1 text-sm font-semibold text-slate-500">({unavailableAssets.length})</span>
+              </h2>
+              <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                Excluded from ranking
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              These records have no priority score or rank. Review their source inputs and provenance before considering them for scoring.
+            </p>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {unavailableAssets.map((asset) => (
+              <article key={asset._id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">{asset.name}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{asset.type}</p>
+                  </div>
+                  <span className="rounded-full border border-slate-300 px-2.5 py-0.5 text-xs font-bold text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                    Priority unavailable
+                  </span>
+                </div>
+                <PriorityAvailabilityDetails availability={asset.priorityAvailability} />
+                <button
+                  type="button"
+                  onClick={() => setSelectedAsset(asset)}
+                  className="mt-3 text-sm font-semibold text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-200"
+                >
+                  View readiness details
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Modals */}
       <ScoreExplanationModal

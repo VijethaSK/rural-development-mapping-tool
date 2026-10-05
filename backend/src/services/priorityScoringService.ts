@@ -5,6 +5,142 @@ import type { InfrastructureDoc, RoadDoc } from '../models/Infrastructure.js';
 export type PriorityLevel = 'Critical' | 'High' | 'Medium' | 'Low';
 export type RankedPriorityLevel = PriorityLevel | 'Unavailable';
 
+export type PriorityScoringInputCode =
+  | 'condition'
+  | 'complaintsCount'
+  | 'populationServed'
+  | 'trafficLevel'
+  | 'lastMaintenanceDate'
+  | 'alternativeDistanceKm';
+
+export interface PriorityScoringInputIssue {
+  code: PriorityScoringInputCode;
+  label: string;
+}
+
+export interface PriorityDataQualityWarning {
+  code: 'COORDINATES_UNAVAILABLE' | 'APPROXIMATE_COORDINATES' | 'UNVERIFIED_COORDINATES';
+  message: string;
+}
+
+export interface PriorityCoordinateProvenance {
+  source: string | null;
+  status: string | null;
+  verified: boolean | null;
+}
+
+export interface PriorityAvailability {
+  eligible: boolean;
+  reasonCode: 'SOURCE_DATA_REVIEW_REQUIRED' | null;
+  reason: string | null;
+  missingScoringInputs: PriorityScoringInputIssue[];
+  dataQualityWarnings: PriorityDataQualityWarning[];
+  coordinateProvenance: PriorityCoordinateProvenance;
+}
+
+interface PriorityAvailabilityRecord {
+  dataOrigin?: string;
+  priorityScorable?: boolean;
+  condition?: unknown;
+  status?: string | null;
+  complaintsCount?: unknown;
+  populationServed?: unknown;
+  trafficLevel?: unknown;
+  lastMaintenanceDate?: unknown;
+  lastRepairDate?: unknown;
+  alternativeDistanceKm?: unknown;
+  accessibility?: { distanceToNearestRoadMeters?: unknown } | null;
+  estimatedMaintenanceCost?: unknown;
+  lineGeometry?: unknown;
+  type?: string;
+  location?: { type?: unknown; coordinates?: unknown } | null;
+  coordinateSource?: string | null;
+  coordinateStatus?: string | null;
+  coordinatesVerified?: boolean;
+}
+
+const PRIORITY_INPUT_LABELS: Record<PriorityScoringInputCode, string> = {
+  condition: 'Condition',
+  complaintsCount: 'Complaint count',
+  populationServed: 'Population served',
+  trafficLevel: 'Traffic / utilization',
+  lastMaintenanceDate: 'Last maintenance date',
+  alternativeDistanceKm: 'Alternative / accessibility distance'
+};
+
+function isFiniteNonNegative(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function hasValidPoint(location: PriorityAvailabilityRecord['location']): boolean {
+  const coordinates = location?.coordinates;
+  return location?.type === 'Point' && Array.isArray(coordinates) && coordinates.length === 2 &&
+    typeof coordinates[0] === 'number' && Number.isFinite(coordinates[0]) && Math.abs(coordinates[0]) <= 180 &&
+    typeof coordinates[1] === 'number' && Number.isFinite(coordinates[1]) && Math.abs(coordinates[1]) <= 90;
+}
+
+function hasValidDate(value: unknown): boolean {
+  if (!(value instanceof Date) && typeof value !== 'string' && typeof value !== 'number') return false;
+  return Number.isFinite(new Date(value).getTime());
+}
+
+/**
+ * Describes the existing source-record eligibility gate without changing it.
+ * Missing inputs and coordinate quality are explanatory metadata only; they do
+ * not enable scoring or turn approximate coordinates into scoring inputs.
+ */
+export function getPriorityAvailability(record: PriorityAvailabilityRecord): PriorityAvailability {
+  const eligible = record.dataOrigin !== 'SOURCE_EXCEL' || record.priorityScorable === true;
+  const missingCodes: PriorityScoringInputCode[] = [];
+  const condition = typeof record.condition === 'string' ? record.condition.trim().toLowerCase() : '';
+  if (!['bad', 'poor', 'needs_maintenance', 'average', 'fair', 'under_repair', 'good', 'operational'].includes(condition)) {
+    missingCodes.push('condition');
+  }
+  if (!isFiniteNonNegative(record.complaintsCount)) missingCodes.push('complaintsCount');
+  if (!isFiniteNonNegative(record.populationServed)) missingCodes.push('populationServed');
+  const traffic = typeof record.trafficLevel === 'string' ? record.trafficLevel.trim().toLowerCase() : '';
+  if (!['high', 'medium', 'low'].includes(traffic)) missingCodes.push('trafficLevel');
+  if (!hasValidDate(record.lastRepairDate ?? record.lastMaintenanceDate)) missingCodes.push('lastMaintenanceDate');
+  const hasAlternativeDistance = isFiniteNonNegative(record.alternativeDistanceKm) ||
+    isFiniteNonNegative(record.accessibility?.distanceToNearestRoadMeters);
+  if (!hasAlternativeDistance) missingCodes.push('alternativeDistanceKm');
+
+  const pointAvailable = hasValidPoint(record.location);
+  const coordinateSource = record.coordinateSource ?? null;
+  const coordinateStatus = record.coordinateStatus ?? null;
+  const coordinatesVerified = typeof record.coordinatesVerified === 'boolean' ? record.coordinatesVerified : null;
+  const dataQualityWarnings: PriorityDataQualityWarning[] = [];
+  if (!pointAvailable) {
+    dataQualityWarnings.push({ code: 'COORDINATES_UNAVAILABLE', message: 'No valid point coordinates are available.' });
+  }
+  if (coordinateSource === 'PUBLIC_MAP_APPROXIMATE' || coordinateStatus === 'APPROXIMATE') {
+    dataQualityWarnings.push({ code: 'APPROXIMATE_COORDINATES', message: 'Coordinates are approximate and are not field-surveyed.' });
+  }
+  if (pointAvailable && (coordinatesVerified !== true || coordinateStatus !== 'VERIFIED')) {
+    dataQualityWarnings.push({ code: 'UNVERIFIED_COORDINATES', message: 'Coordinates have not been confirmed as verified.' });
+  }
+
+  return {
+    eligible,
+    reasonCode: eligible ? null : 'SOURCE_DATA_REVIEW_REQUIRED',
+    reason: eligible ? null : 'This source record is not marked eligible for priority scoring; review its inputs and provenance before enabling scoring.',
+    missingScoringInputs: missingCodes.map((code) => ({ code, label: PRIORITY_INPUT_LABELS[code] })),
+    dataQualityWarnings,
+    coordinateProvenance: { source: coordinateSource, status: coordinateStatus, verified: coordinatesVerified }
+  };
+}
+
+/** Shared unavailable fields for the list and per-infrastructure response paths. */
+export function getUnavailablePriorityFields(record: PriorityAvailabilityRecord) {
+  const priorityAvailability = getPriorityAvailability(record);
+  return {
+    priorityScore: null,
+    priorityLevel: 'Unavailable' as const,
+    scoringStatus: 'UNAVAILABLE' as const,
+    priorityAvailability
+  };
+}
+
 export interface FactorDetail {
   rawValue: string | number;
   normalizedScore: number; // 0 to 100
@@ -49,6 +185,11 @@ export interface RankedItem {
   priorityScore: number | null;
   priorityLevel: RankedPriorityLevel;
   scoringStatus: 'SCORED' | 'UNAVAILABLE';
+  priorityScorable?: boolean;
+  priorityAvailability?: PriorityAvailability;
+  missingDataFields?: string[];
+  coordinateStatus?: string;
+  alternativeDistanceKm?: number | null;
   explanation: PriorityExplanation | null;
   dataOrigin?: string;
   isSynthetic?: boolean;
@@ -404,7 +545,8 @@ export class PriorityScoringService {
     const calculated: RankedItem[] = rawList.map((item: any) => {
       const configDoc: any = configs.find((entry: any) => String(entry.panchayatId) === String(item.panchayatId));
       const config = configDoc ? { weights: configDoc.weights, thresholds: configDoc.thresholds, limits: configDoc.limits } : defaultConfig;
-      const isUnscored = item.dataOrigin === 'SOURCE_EXCEL' && item.priorityScorable !== true;
+      const unavailableFields = getUnavailablePriorityFields(item);
+      const isUnscored = !unavailableFields.priorityAvailability.eligible;
       const explanation = isUnscored ? null : this.calculate(item, config);
       return {
         id: String(item._id),
@@ -422,9 +564,10 @@ export class PriorityScoringService {
         lastMaintenanceDate: item.lastMaintenanceDate || item.lastRepairDate,
         complaintsCount: item.complaintsCount ?? (isUnscored ? null : 0),
         populationServed: item.populationServed ?? (isUnscored ? null : 0),
-        priorityScore: explanation?.priorityScore ?? null,
-        priorityLevel: explanation?.priorityLevel ?? 'Unavailable',
-        scoringStatus: explanation ? 'SCORED' : 'UNAVAILABLE',
+        ...unavailableFields,
+        priorityScore: explanation?.priorityScore ?? unavailableFields.priorityScore,
+        priorityLevel: explanation?.priorityLevel ?? unavailableFields.priorityLevel,
+        scoringStatus: explanation ? 'SCORED' : unavailableFields.scoringStatus,
         estimatedMaintenanceCost: item.estimatedMaintenanceCost ?? item.estimatedRepairCost ?? (isUnscored ? null : 0),
         estimatedRepairCost: item.estimatedRepairCost ?? item.estimatedMaintenanceCost ?? (isUnscored ? null : 0),
         trafficLevel: item.trafficLevel,
@@ -445,7 +588,11 @@ export class PriorityScoringService {
         verificationRequired: item.verificationRequired,
         verificationNotes: item.verificationNotes,
         coordinatesVerified: item.coordinatesVerified,
-        coordinateSource: item.coordinateSource
+        coordinateSource: item.coordinateSource,
+        coordinateStatus: item.coordinateStatus,
+        priorityScorable: item.priorityScorable,
+        missingDataFields: item.missingDataFields || [],
+        alternativeDistanceKm: item.alternativeDistanceKm
       };
     });
 

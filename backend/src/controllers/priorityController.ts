@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PriorityScoringService, PriorityLevel } from '../services/priorityScoringService.js';
+import { getUnavailablePriorityFields, PriorityScoringService, PriorityLevel } from '../services/priorityScoringService.js';
 import { PriorityConfig } from '../models/PriorityConfig.js';
 import { Infrastructure } from '../models/Infrastructure.js';
 import { assertPanchayatAccess, panchayatFilter, resolvePanchayatScope } from '../middleware/panchayatScope.js';
@@ -52,17 +52,17 @@ export async function getById(req: Request, res: Response): Promise<void> {
     }
     assertPanchayatAccess(req, asset.panchayatId);
 
-    if (asset.dataOrigin === 'SOURCE_EXCEL' && asset.priorityScorable !== true) {
+    const unavailableFields = getUnavailablePriorityFields(asset);
+    if (!unavailableFields.priorityAvailability.eligible) {
       res.json({
         infrastructureId: asset._id,
         name: asset.name,
         type: asset.type,
         sourceCategory: asset.sourceCategory,
         sourceType: asset.sourceType,
-        priorityScore: null,
-        priorityLevel: 'Unavailable',
-        scoringStatus: 'UNAVAILABLE',
-        reason: 'Priority scoring is unavailable because source-derived condition, complaint, population, traffic, maintenance, and/or spatial values have not been provided or verified.',
+        ...unavailableFields,
+        reasonCode: unavailableFields.priorityAvailability.reasonCode,
+        reason: unavailableFields.priorityAvailability.reason,
         missingDataFields: asset.missingDataFields || []
       });
       return;

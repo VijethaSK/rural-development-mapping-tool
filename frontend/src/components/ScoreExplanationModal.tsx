@@ -1,5 +1,6 @@
 import React from 'react';
 import { RankedInfrastructure, PriorityExplanation } from '../types/priority';
+import PriorityAvailabilityDetails from './PriorityAvailabilityDetails';
 
 interface ScoreExplanationModalProps {
   asset: RankedInfrastructure | null;
@@ -18,9 +19,16 @@ export default function ScoreExplanationModal({ asset, onClose }: ScoreExplanati
             <button onClick={onClose} aria-label="Close modal" className="text-2xl">×</button>
           </div>
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            Priority score unavailable. This source record does not contain enough verified condition, complaint, population, traffic, maintenance, or accessibility data for a defensible score.
+            Priority score unavailable under the current source-record eligibility policy.
           </p>
-          {asset.missingDataFields && <p className="mt-2 text-sm text-slate-600">Missing fields: {asset.missingDataFields.join(', ') || 'Not specified'}</p>}
+          <div className="mt-4">
+            <PriorityAvailabilityDetails availability={asset.priorityAvailability} />
+          </div>
+          {asset.missingDataFields && asset.missingDataFields.length > 0 && (
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+              Source-record missing-data flags: {asset.missingDataFields.join(', ')}
+            </p>
+          )}
         </div>
       </div>
     );

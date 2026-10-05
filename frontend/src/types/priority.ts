@@ -1,6 +1,37 @@
 export type PriorityLevel = 'Critical' | 'High' | 'Medium' | 'Low';
 export type RankedPriorityLevel = PriorityLevel | 'Unavailable';
 
+export type PriorityScoringInputCode =
+  | 'condition'
+  | 'complaintsCount'
+  | 'populationServed'
+  | 'trafficLevel'
+  | 'lastMaintenanceDate'
+  | 'alternativeDistanceKm';
+
+export interface PriorityScoringInputIssue {
+  code: PriorityScoringInputCode;
+  label: string;
+}
+
+export interface PriorityDataQualityWarning {
+  code: 'COORDINATES_UNAVAILABLE' | 'APPROXIMATE_COORDINATES' | 'UNVERIFIED_COORDINATES';
+  message: string;
+}
+
+export interface PriorityAvailability {
+  eligible: boolean;
+  reasonCode: 'SOURCE_DATA_REVIEW_REQUIRED' | null;
+  reason: string | null;
+  missingScoringInputs: PriorityScoringInputIssue[];
+  dataQualityWarnings: PriorityDataQualityWarning[];
+  coordinateProvenance: {
+    source: string | null;
+    status: string | null;
+    verified: boolean | null;
+  };
+}
+
 export interface FactorDetail {
   score: number;
   weight: number;
@@ -58,6 +89,8 @@ export interface RankedInfrastructure {
   priorityScore: number | null;
   priorityLevel: RankedPriorityLevel;
   scoringStatus?: 'SCORED' | 'UNAVAILABLE';
+  priorityScorable?: boolean;
+  priorityAvailability?: PriorityAvailability;
   dataOrigin?: string;
   isSynthetic?: boolean;
   sourceCategory?: string;
@@ -72,6 +105,8 @@ export interface RankedInfrastructure {
   verificationNotes?: string;
   coordinatesVerified?: boolean;
   coordinateSource?: string | null;
+  coordinateStatus?: string;
+  alternativeDistanceKm?: number | null;
   missingDataFields?: string[];
   sourceData?: Record<string, unknown>;
   priorityExplanation?: PriorityExplanation;

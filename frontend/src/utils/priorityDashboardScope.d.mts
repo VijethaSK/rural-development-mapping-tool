@@ -1,4 +1,4 @@
-import type { PriorityStats, RankedInfrastructure } from '../types/priority';
+import type { PriorityAvailability, PriorityStats, RankedInfrastructure } from '../types/priority';
 
 export function resolveInitialPriorityPanchayat(
   panchayats: Array<{ _id: string; name: string }>,
@@ -8,6 +8,19 @@ export function updatePrioritySearchParams(current: URLSearchParams, panchayatId
 export function buildPriorityRequestPath(panchayatId: string): string;
 export function parsePriorityResponse(response: unknown): { items: RankedInfrastructure[]; stats: PriorityStats };
 export function isScoredPriority(item: RankedInfrastructure): boolean;
+export function getUnavailablePriorityItems(items: RankedInfrastructure[]): RankedInfrastructure[];
+export function shouldShowUnavailablePrioritySection(input: {
+  loading: boolean;
+  error: string | null;
+  items: RankedInfrastructure[];
+}): boolean;
+export function getPriorityAvailabilityDisplay(availability?: PriorityAvailability | null): {
+  hasStructuredAvailability: boolean;
+  reason: string;
+  missingScoringInputs: PriorityAvailability['missingScoringInputs'];
+  dataQualityWarnings: PriorityAvailability['dataQualityWarnings'];
+  coordinateProvenance: PriorityAvailability['coordinateProvenance'] | null;
+};
 export function getPriorityDisplaySummary(items: RankedInfrastructure[], stats: PriorityStats): {
   total: number;
   scored: number;
