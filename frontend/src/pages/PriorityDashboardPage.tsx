@@ -1,10 +1,39 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { RankedInfrastructure, PriorityStats, PriorityLevel, RankedPriorityLevel } from '../types/priority';
-import { api } from '../api/client';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { RankedInfrastructure, PriorityStats, RankedPriorityLevel } from '../types/priority';
+import { api, apiAuth } from '../api/client';
+import { useAuth } from '../store/auth';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
 import PriorityConfigModal from '../components/PriorityConfigModal';
+import {
+  applyPriorityResultIfCurrent,
+  buildPriorityRequestPath,
+  createPriorityRequestGate,
+  filterAndSortPriorityItems,
+  getPriorityDisplaySummary,
+  getPriorityEmptyState,
+  parsePriorityResponse,
+  resolveInitialPriorityPanchayat,
+  updatePrioritySearchParams,
+} from '../utils/priorityDashboardScope.mjs';
+
+interface PanchayatOption {
+  _id: string;
+  name: string;
+}
 
 export default function PriorityDashboardPage() {
+  const { token } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialPanchayatIdRef = useRef(searchParams.get('panchayatId'));
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const requestGateRef = useRef(createPriorityRequestGate());
+  const [panchayats, setPanchayats] = useState<PanchayatOption[]>([]);
+  const [panchayatsLoading, setPanchayatsLoading] = useState<boolean>(true);
+  const [panchayatError, setPanchayatError] = useState<string | null>(null);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [selectedPanchayatId, setSelectedPanchayatId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [recalculating, setRecalculating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,33 +51,129 @@ export default function PriorityDashboardPage() {
   const [selectedAsset, setSelectedAsset] = useState<RankedInfrastructure | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
 
-  const fetchPriorities = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api<{
-        data: RankedInfrastructure[];
-        stats: PriorityStats;
-      }>('/api/priorities');
-      setAssets(data.data || []);
-      setStats(data.stats || null);
-    } catch (err: any) {
-      console.error('Failed to load priority data', err);
-      setError(err.message || 'Could not fetch ranked infrastructure priorities.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchPriorities();
+    const lifecycleId = requestGateRef.current.activate();
+    return () => {
+      requestGateRef.current.deactivate(lifecycleId);
+    };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    requestGateRef.current.select(null);
+    setSelectedPanchayatId('');
+    setAssets([]);
+    setStats(null);
+    setError(null);
+    setSelectionError(null);
+    setPanchayatError(null);
+    setPanchayatsLoading(true);
+    setLoading(true);
+
+    const loadPanchayats = async () => {
+      try {
+        const list = token
+          ? await apiAuth<PanchayatOption[]>('/panchayats', token)
+          : await api<PanchayatOption[]>('/panchayats');
+        if (!Array.isArray(list) || list.some((item) => !item || typeof item._id !== 'string' || typeof item.name !== 'string')) {
+          throw new Error('The Panchayat list response was invalid.');
+        }
+        if (!active) return;
+
+        setPanchayats(list);
+        const initial = resolveInitialPriorityPanchayat(list, initialPanchayatIdRef.current);
+        setSelectionError(initial.error);
+        requestGateRef.current.select(initial.selectedId || null);
+        setSelectedPanchayatId(initial.selectedId);
+        if (initial.selectedId && !initialPanchayatIdRef.current) {
+          initialPanchayatIdRef.current = initial.selectedId;
+          setSearchParams((current) => updatePrioritySearchParams(current, initial.selectedId), { replace: true });
+        }
+        if (!initial.selectedId) setLoading(false);
+      } catch (loadError: unknown) {
+        if (!active) return;
+        setPanchayatError(loadError instanceof Error ? loadError.message : 'Failed to load Panchayats.');
+        setLoading(false);
+      } finally {
+        if (active) setPanchayatsLoading(false);
+      }
+    };
+
+    void loadPanchayats();
+    return () => {
+      active = false;
+    };
+  }, [token, setSearchParams]);
+
+  const loadPriorities = useCallback((panchayatId: string) => {
+    const request = requestGateRef.current.begin(panchayatId);
+    if (!request) return null;
+    setLoading(true);
+    setError(null);
+    setAssets([]);
+    setStats(null);
+
+    void (async () => {
+      try {
+        const url = buildPriorityRequestPath(panchayatId);
+        const response = tokenRef.current
+          ? await apiAuth<{ items: RankedInfrastructure[]; stats: PriorityStats }>(url, tokenRef.current)
+          : await api<{ items: RankedInfrastructure[]; stats: PriorityStats }>(url);
+        const data = parsePriorityResponse(response);
+        applyPriorityResultIfCurrent(requestGateRef.current, request, () => {
+          setAssets(data.items);
+          setStats(data.stats);
+          setError(null);
+        });
+      } catch (loadError: unknown) {
+        applyPriorityResultIfCurrent(requestGateRef.current, request, () => {
+          setAssets([]);
+          setStats(null);
+          setError(loadError instanceof Error ? loadError.message : 'Could not fetch ranked infrastructure priorities.');
+        });
+      } finally {
+        applyPriorityResultIfCurrent(requestGateRef.current, request, () => setLoading(false));
+      }
+    })();
+    return request;
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPanchayatId) {
+      setLoading(false);
+      return;
+    }
+    const request = loadPriorities(selectedPanchayatId);
+    return () => {
+      if (request) requestGateRef.current.invalidateIfCurrent(request);
+    };
+  }, [selectedPanchayatId, loadPriorities]);
+
+  const selectPanchayat = (panchayatId: string) => {
+    if (panchayatId && !panchayats.some((panchayat) => panchayat._id === panchayatId)) return;
+    requestGateRef.current.select(panchayatId || null);
+    setSelectedPanchayatId(panchayatId);
+    setAssets([]);
+    setStats(null);
+    setError(null);
+    setSelectionError(null);
+    setSelectedAsset(null);
+    setIsConfigOpen(false);
+    setLoading(Boolean(panchayatId));
+    initialPanchayatIdRef.current = panchayatId || null;
+    setSearchParams((current) => updatePrioritySearchParams(current, panchayatId), { replace: true });
+  };
+
   const handleRecalculate = async () => {
+    if (!selectedPanchayatId) return;
     setRecalculating(true);
     try {
-      await api('/api/priorities/recalculate', { method: 'POST' });
-      await fetchPriorities();
+      const params = new URLSearchParams({ panchayatId: selectedPanchayatId });
+      const url = `/api/priorities/recalculate?${params.toString()}`;
+      const options = { method: 'POST' };
+      if (tokenRef.current) await apiAuth(url, tokenRef.current, options);
+      else await api(url, options);
+      loadPriorities(selectedPanchayatId);
     } catch (err: any) {
       alert('Recalculation error: ' + err.message);
     } finally {
@@ -56,29 +181,20 @@ export default function PriorityDashboardPage() {
     }
   };
 
-  const filteredAssets = useMemo(() => {
-    return assets.filter((asset) => asset.priorityScore != null && asset.priorityLevel !== 'Unavailable').filter((asset) => {
-      if (typeFilter !== 'All' && asset.type.toLowerCase() !== typeFilter.toLowerCase()) {
-        return false;
-      }
-      if (priorityFilter !== 'All' && asset.priorityLevel !== priorityFilter) {
-        return false;
-      }
-      if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase();
-        const matchName = asset.name?.toLowerCase().includes(term);
-        const matchHabitation = asset.habitationName?.toLowerCase().includes(term);
-        const matchType = asset.type?.toLowerCase().includes(term);
-        if (!matchName && !matchHabitation && !matchType) return false;
-      }
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === 'score') return (b.priorityScore ?? -1) - (a.priorityScore ?? -1);
-      if (sortBy === 'complaints') return (b.complaintsCount ?? -1) - (a.complaintsCount ?? -1);
-      if (sortBy === 'population') return (b.populationServed ?? -1) - (a.populationServed ?? -1);
-      return 0;
-    });
-  }, [assets, typeFilter, priorityFilter, searchTerm, sortBy]);
+  const filteredAssets = useMemo(() => filterAndSortPriorityItems(assets, {
+    typeFilter, priorityFilter, searchTerm, sortBy
+  }), [assets, typeFilter, priorityFilter, searchTerm, sortBy]);
+
+  const displaySummary = useMemo(() => stats ? getPriorityDisplaySummary(assets, stats) : null, [assets, stats]);
+  const emptyState = getPriorityEmptyState({
+    selectedPanchayat: Boolean(selectedPanchayatId),
+    panchayatCount: panchayats.length,
+    selectionError,
+    items: assets,
+    stats,
+    scoredCount: displaySummary?.scored ?? 0,
+    filteredCount: filteredAssets.length,
+  });
 
   const topCriticalAssets = useMemo(() => {
     return assets.filter((asset) => asset.priorityScore != null && asset.priorityLevel !== 'Unavailable').slice(0, 3);
@@ -143,14 +259,15 @@ export default function PriorityDashboardPage() {
 
         <div className="flex items-center gap-2">
           <button
+            disabled={!selectedPanchayatId || panchayatsLoading}
             onClick={() => setIsConfigOpen(true)}
-            className="px-3.5 py-2 text-sm font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition shadow-sm flex items-center gap-2"
+            className="px-3.5 py-2 text-sm font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>⚙️</span>
             <span>Configure Weights</span>
           </button>
           <button
-            disabled={recalculating}
+            disabled={recalculating || !selectedPanchayatId || panchayatsLoading}
             onClick={handleRecalculate}
             className={`px-4 py-2 text-sm font-semibold rounded-lg text-white transition shadow-sm flex items-center gap-2 ${
               recalculating
@@ -164,17 +281,50 @@ export default function PriorityDashboardPage() {
         </div>
       </div>
 
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <label htmlFor="priority-panchayat" className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Panchayat for this analysis
+        </label>
+        <select
+          id="priority-panchayat"
+          value={selectedPanchayatId}
+          onChange={(event) => selectPanchayat(event.target.value)}
+          disabled={panchayatsLoading || Boolean(panchayatError) || panchayats.length === 0}
+          className="min-w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          <option value="">Select Panchayat</option>
+          {panchayats.map((panchayat) => (
+            <option key={panchayat._id} value={panchayat._id}>{panchayat.name}</option>
+          ))}
+        </select>
+        {panchayatsLoading && <span className="text-sm text-slate-500">Loading available Panchayats…</span>}
+        {panchayatError && <span role="alert" className="text-sm text-red-600 dark:text-red-400">{panchayatError}</span>}
+        {!panchayatsLoading && !panchayatError && panchayats.length === 0 && (
+          <span className="text-sm text-slate-500">No Panchayats are available to this account.</span>
+        )}
+        {selectionError && <span role="alert" className="text-sm text-amber-700 dark:text-amber-400">{selectionError}</span>}
+        {!panchayatsLoading && panchayats.length > 1 && !selectedPanchayatId && !selectionError && (
+          <span className="text-sm text-slate-500">Select a Panchayat to view its priority analysis.</span>
+        )}
+      </div>
+
       {/* KPI Cards */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {displaySummary && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
           <div className="p-4 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
               Total Assets
             </div>
             <div className="text-2xl font-bold mt-1 text-slate-900 dark:text-white">
-              {stats.total}
+              {displaySummary.total}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">Scored & indexed</div>
+            <div className="text-xs text-slate-400 mt-0.5">{displaySummary.scored} scored · {displaySummary.unscored} unscored</div>
+          </div>
+
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Unscored</div>
+            <div className="text-2xl font-bold mt-1 text-slate-700 dark:text-slate-200">{displaySummary.unscored}</div>
+            <div className="text-xs text-slate-400 mt-0.5">Not included in urgency</div>
           </div>
 
           <div className="p-4 bg-red-50/60 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-900/40 shadow-sm">
@@ -182,7 +332,7 @@ export default function PriorityDashboardPage() {
               Critical
             </div>
             <div className="text-2xl font-bold mt-1 text-red-800 dark:text-red-300">
-              {stats.critical}
+              {displaySummary.critical}
             </div>
             <div className="text-xs text-red-600/80 dark:text-red-400/80 mt-0.5">Score &ge; 80</div>
           </div>
@@ -192,7 +342,7 @@ export default function PriorityDashboardPage() {
               High
             </div>
             <div className="text-2xl font-bold mt-1 text-orange-800 dark:text-orange-300">
-              {stats.high}
+              {displaySummary.high}
             </div>
             <div className="text-xs text-orange-600/80 dark:text-orange-400/80 mt-0.5">Score 60–79</div>
           </div>
@@ -202,7 +352,7 @@ export default function PriorityDashboardPage() {
               Medium
             </div>
             <div className="text-2xl font-bold mt-1 text-amber-800 dark:text-amber-300">
-              {stats.medium}
+              {displaySummary.medium}
             </div>
             <div className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-0.5">Score 40–59</div>
           </div>
@@ -212,7 +362,7 @@ export default function PriorityDashboardPage() {
               Low
             </div>
             <div className="text-2xl font-bold mt-1 text-emerald-800 dark:text-emerald-300">
-              {stats.low}
+              {displaySummary.low}
             </div>
             <div className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">Score &lt; 40</div>
           </div>
@@ -222,9 +372,9 @@ export default function PriorityDashboardPage() {
               Avg Priority
             </div>
             <div className="text-2xl font-bold mt-1 text-blue-600 dark:text-blue-400">
-              {stats.averageScore.toFixed(1)}
+              {displaySummary.averageScore == null ? 'Not available' : displaySummary.averageScore.toFixed(1)}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">Scale 0–100</div>
+            <div className="text-xs text-slate-400 mt-0.5">Scored assets only · 0–100</div>
           </div>
         </div>
       )}
@@ -365,16 +515,41 @@ export default function PriorityDashboardPage() {
 
       {/* Main Ranking Table */}
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        {loading ? (
+        {panchayatsLoading ? (
+          <div className="p-12 text-center text-slate-500">
+            <div className="animate-spin text-3xl mb-2">⚙️</div>
+            Loading available Panchayats...
+          </div>
+        ) : panchayatError ? (
+          <div role="alert" className="p-8 text-center text-red-600 dark:text-red-400">{panchayatError}</div>
+        ) : emptyState === 'invalid-selection' || emptyState === 'select-panchayat' || emptyState === 'no-panchayats' ? (
+          <div className="p-12 text-center text-slate-500">
+            {emptyState === 'invalid-selection'
+              ? selectionError
+              : emptyState === 'no-panchayats'
+                ? 'No Panchayats are available to this account.'
+                : 'Select a Panchayat to view its priority analysis.'}
+          </div>
+        ) : loading ? (
           <div className="p-12 text-center text-slate-500">
             <div className="animate-spin text-3xl mb-2">⚙️</div>
             Evaluating multi-criteria normalization & rankings...
           </div>
         ) : error ? (
           <div className="p-8 text-center text-red-600 dark:text-red-400">{error}</div>
-        ) : filteredAssets.length === 0 ? (
+        ) : emptyState === 'no-assets' ? (
+          <div className="p-12 text-center text-slate-500">No infrastructure assets were returned for this Panchayat.</div>
+        ) : emptyState === 'inconsistent-response' ? (
+          <div className="p-12 text-center text-amber-700 dark:text-amber-400">
+            The API reports {stats?.total ?? 'some'} assets for this Panchayat but returned no asset records. The response is incomplete.
+          </div>
+        ) : emptyState === 'none-scorable' ? (
+          <div className="p-12 text-center text-slate-600 dark:text-slate-300">
+            {assets.length} assets were returned, but none are currently scorable. They are not included in the ranked list or urgency counts.
+          </div>
+        ) : emptyState === 'filters-empty' ? (
           <div className="p-12 text-center text-slate-500">
-            No infrastructure assets match the active filters.
+            No scored assets match the active filters.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -484,8 +659,11 @@ export default function PriorityDashboardPage() {
 
       <PriorityConfigModal
         isOpen={isConfigOpen}
+        panchayatId={selectedPanchayatId}
         onClose={() => setIsConfigOpen(false)}
-        onConfigSaved={fetchPriorities}
+        onConfigSaved={() => {
+          if (selectedPanchayatId) loadPriorities(selectedPanchayatId);
+        }}
       />
     </div>
   );

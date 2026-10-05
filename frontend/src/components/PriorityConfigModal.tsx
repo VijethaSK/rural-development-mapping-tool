@@ -1,16 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useLayoutEffect, useRef } from 'react';
 import { PriorityConfig, PriorityWeights } from '../types/priority';
 import { api, apiAuth } from '../api/client';
 import { useAuth } from '../store/auth';
+import {
+  canSavePriorityConfiguration,
+  commitPriorityConfigRequestIfCurrent,
+  createPriorityConfigRequestGate,
+  parsePriorityConfigResponse,
+} from '../utils/priorityConfigRequest.mjs';
 
 interface PriorityConfigModalProps {
   isOpen: boolean;
+  panchayatId: string;
   onClose: () => void;
   onConfigSaved: () => void;
 }
 
 export default function PriorityConfigModal({
   isOpen,
+  panchayatId,
   onClose,
   onConfigSaved,
 }: PriorityConfigModalProps) {
@@ -19,6 +27,10 @@ export default function PriorityConfigModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [loadSucceeded, setLoadSucceeded] = useState(false);
+  const [loadedPanchayatId, setLoadedPanchayatId] = useState<string | null>(null);
+  const requestGateRef = useRef(createPriorityConfigRequestGate());
+  const loadedRequestRef = useRef<ReturnType<typeof requestGateRef.current.begin>>(null);
 
   // Weights in percentage (0 - 100) for user friendly UI
   const [weights, setWeights] = useState({
@@ -38,36 +50,70 @@ export default function PriorityConfigModal({
 
   const [notes, setNotes] = useState('');
 
-  useEffect(() => {
-    if (!isOpen) return;
+  useLayoutEffect(() => {
+    if (!isOpen || !panchayatId) return;
+    const requestGate = requestGateRef.current;
+    const loadIdentity = requestGate.begin(panchayatId);
+    if (!loadIdentity) return;
+
     setLoading(true);
     setError(null);
     setSuccess(false);
+    setSaving(false);
+    setLoadSucceeded(false);
+    setLoadedPanchayatId(null);
+    loadedRequestRef.current = null;
+    setWeights({
+      condition: 30,
+      complaints: 20,
+      population: 15,
+      traffic: 15,
+      maintenanceAge: 10,
+      alternativeDistance: 10,
+    });
+    setThresholds({ critical: 80, high: 60, medium: 40 });
+    setNotes('');
 
-    api<{ config: PriorityConfig }>('/api/priorities/config')
+    const params = new URLSearchParams({ panchayatId });
+    const url = `/api/priorities/config?${params.toString()}`;
+    const configRequest = token
+      ? apiAuth<PriorityConfig & { config?: PriorityConfig }>(url, token)
+      : api<PriorityConfig & { config?: PriorityConfig }>(url);
+
+    configRequest
       .then((data) => {
-        if (data.config?.weights) {
+        const config = parsePriorityConfigResponse(data);
+        commitPriorityConfigRequestIfCurrent(requestGate, loadIdentity, { isOpen, panchayatId }, () => {
           setWeights({
-            condition: Math.round(data.config.weights.condition * 100),
-            complaints: Math.round(data.config.weights.complaints * 100),
-            population: Math.round(data.config.weights.population * 100),
-            traffic: Math.round(data.config.weights.traffic * 100),
-            maintenanceAge: Math.round(data.config.weights.maintenanceAge * 100),
-            alternativeDistance: Math.round(data.config.weights.alternativeDistance * 100),
+            condition: Math.round(config.weights.condition * 100),
+            complaints: Math.round(config.weights.complaints * 100),
+            population: Math.round(config.weights.population * 100),
+            traffic: Math.round(config.weights.traffic * 100),
+            maintenanceAge: Math.round(config.weights.maintenanceAge * 100),
+            alternativeDistance: Math.round(config.weights.alternativeDistance * 100),
           });
-        }
-        if (data.config?.thresholds) {
-          setThresholds(data.config.thresholds);
-        }
-        if (data.config?.notes) {
-          setNotes(data.config.notes);
-        }
+          setThresholds(config.thresholds);
+          if (config.notes) setNotes(config.notes);
+          loadedRequestRef.current = loadIdentity;
+          setLoadedPanchayatId(loadIdentity.panchayatId);
+          setLoadSucceeded(true);
+        });
       })
       .catch((err) => {
-        console.warn('Failed to fetch config, using defaults', err);
+        commitPriorityConfigRequestIfCurrent(requestGate, loadIdentity, { isOpen, panchayatId }, () => {
+          console.warn('Failed to fetch Panchayat priority configuration', err);
+          setLoadSucceeded(false);
+          setError('Could not load this Panchayat’s priority configuration. Close and retry before saving changes.');
+        });
       })
-      .finally(() => setLoading(false));
-  }, [isOpen]);
+      .finally(() => {
+        commitPriorityConfigRequestIfCurrent(requestGate, loadIdentity, { isOpen, panchayatId }, () => setLoading(false));
+      });
+
+    return () => {
+      requestGate.invalidate(loadIdentity);
+    };
+  }, [isOpen, panchayatId, token]);
 
   if (!isOpen) return null;
 
@@ -80,6 +126,13 @@ export default function PriorityConfigModal({
     weights.alternativeDistance;
 
   const isValidTotal = totalPercentage === 100;
+  const canSave = canSavePriorityConfiguration({
+    isOpen,
+    isLoading: loading,
+    loadSucceeded,
+    loadedPanchayatId,
+    selectedPanchayatId: panchayatId,
+  }) && requestGateRef.current.isCurrent(loadedRequestRef.current, { isOpen, panchayatId });
 
   const handleWeightChange = (key: keyof typeof weights, value: number) => {
     setWeights((prev) => ({
@@ -89,6 +142,7 @@ export default function PriorityConfigModal({
   };
 
   const handleSave = async () => {
+    if (!canSave || !requestGateRef.current.isCurrent(loadedRequestRef.current, { isOpen, panchayatId })) return;
     if (!isValidTotal) {
       setError(`Weights must sum to exactly 100%. Current sum is ${totalPercentage}%.`);
       return;
@@ -97,6 +151,8 @@ export default function PriorityConfigModal({
     setSaving(true);
     setError(null);
     setSuccess(false);
+    const savePanchayatId = panchayatId;
+    const saveRequest = loadedRequestRef.current;
 
     const payloadWeights: PriorityWeights = {
       condition: weights.condition / 100,
@@ -108,10 +164,20 @@ export default function PriorityConfigModal({
     };
 
     try {
+      // Re-check immediately before constructing the write so stale weights can never
+      // be submitted with a newly selected Panchayat ID.
+      if (!canSavePriorityConfiguration({
+        isOpen,
+        isLoading: loading,
+        loadSucceeded,
+        loadedPanchayatId,
+        selectedPanchayatId: panchayatId,
+      }) || !requestGateRef.current.isCurrent(saveRequest, { isOpen, panchayatId: savePanchayatId })) return;
       const call = token
         ? apiAuth('/api/priorities/config', token, {
             method: 'PUT',
             body: JSON.stringify({
+              panchayatId: savePanchayatId,
               weights: payloadWeights,
               thresholds,
               notes: notes || 'Updated via Admin Priority Control Panel',
@@ -120,6 +186,7 @@ export default function PriorityConfigModal({
         : api('/api/priorities/config', {
             method: 'PUT',
             body: JSON.stringify({
+              panchayatId: savePanchayatId,
               weights: payloadWeights,
               thresholds,
               notes: notes || 'Updated via Admin Priority Control Panel',
@@ -127,15 +194,19 @@ export default function PriorityConfigModal({
           });
 
       await call;
+      if (!requestGateRef.current.isCurrent(saveRequest, { isOpen, panchayatId: savePanchayatId })) return;
       setSuccess(true);
       setTimeout(() => {
+        if (!requestGateRef.current.isCurrent(saveRequest, { isOpen, panchayatId: savePanchayatId })) return;
         onConfigSaved();
         onClose();
       }, 700);
     } catch (err: any) {
-      setError(err.message || 'Failed to update priority configuration.');
+      if (requestGateRef.current.isCurrent(saveRequest, { isOpen, panchayatId: savePanchayatId })) {
+        setError(err.message || 'Failed to update priority configuration.');
+      }
     } finally {
-      setSaving(false);
+      if (requestGateRef.current.isCurrent(saveRequest, { isOpen, panchayatId: savePanchayatId })) setSaving(false);
     }
   };
 
@@ -181,7 +252,7 @@ export default function PriorityConfigModal({
           </button>
         </div>
 
-        {loading ? (
+        {loading || (!error && loadedPanchayatId !== panchayatId) ? (
           <div className="p-8 text-center text-slate-500">Loading current configuration...</div>
         ) : (
           <div className="mt-4 space-y-4">
@@ -321,7 +392,7 @@ export default function PriorityConfigModal({
                 </button>
                 <button
                   type="button"
-                  disabled={!isValidTotal || saving}
+                  disabled={!canSave || !isValidTotal || saving || loading || Boolean(error)}
                   onClick={handleSave}
                   className={`px-4 py-1.5 rounded-lg text-sm font-semibold text-white transition ${
                     isValidTotal && !saving
