@@ -14,16 +14,35 @@ import { School, Road } from '../../models/Infrastructure.js';
 import { Panchayat } from '../../models/Panchayat.js';
 import { getRoutingProvider } from '../routing/routingProvider.js';
 import { calculateOverallGapPopulationMetrics, gapAreaPopulation } from './populationMetrics.js';
+import {
+  assessOverallGap,
+  calculateDistanceRatio,
+  coverageStatusForRatio,
+  formatDistanceRatio,
+  severityForDistanceRatio
+} from './distanceThresholdClassification.js';
 
 function formatFiniteDistanceKm(distanceKm: number): string {
-  return Number.isFinite(distanceKm) ? `${distanceKm.toFixed(1)} km` : 'unavailable';
+  return Number.isFinite(distanceKm) ? `${distanceKm.toFixed(3)} km` : 'unavailable';
 }
 
-function formatRoadDistanceNote(distanceKm: number | undefined, thresholdKm: number): string {
-  if (distanceKm == null || !Number.isFinite(distanceKm)) {
-    return 'Road distance unavailable (no usable road geometry)';
+function formatCoverageDistanceNote(
+  label: 'school' | 'road',
+  distanceKm: number | undefined,
+  thresholdKm: number
+): string {
+  const ratio = calculateDistanceRatio(distanceKm, thresholdKm);
+  if (ratio == null) {
+    return label === 'road'
+      ? 'road distance unavailable (no usable road geometry)'
+      : 'school distance unavailable (no usable school coordinates)';
   }
-  return `nearest road is ${distanceKm.toFixed(1)} km (threshold: ${thresholdKm} km)`;
+  const status = ratio < 1
+    ? 'within acceptable threshold'
+    : ratio === 1
+      ? 'at the threshold (classified as a gap)'
+      : 'beyond the threshold';
+  return `nearest ${label} distance is ${formatFiniteDistanceKm(distanceKm!)} (threshold: ${thresholdKm} km; ratio: ${formatDistanceRatio(ratio)}; ${status})`;
 }
 
 export function buildHabitationGapNotes(
@@ -37,7 +56,7 @@ export function buildHabitationGapNotes(
   const networkNote = networkDistanceKm != null && Number.isFinite(networkDistanceKm)
     ? `, network road travel: ${networkDistanceKm} km`
     : '';
-  return `${name} is underserved: nearest school is ${formatFiniteDistanceKm(schoolDistanceKm)} (threshold: ${schoolThresholdKm} km)${networkNote}; ${formatRoadDistanceNote(roadDistanceKm, roadThresholdKm)}.`;
+  return `${name} coverage: ${formatCoverageDistanceNote('school', schoolDistanceKm, schoolThresholdKm)}${networkNote}; ${formatCoverageDistanceNote('road', roadDistanceKm, roadThresholdKm)}.`;
 }
 
 export function buildGridCellGapNotes(
@@ -47,10 +66,7 @@ export function buildGridCellGapNotes(
   roadDistanceKm: number | undefined,
   roadThresholdKm: number
 ): string {
-  const roadNote = roadDistanceKm != null && Number.isFinite(roadDistanceKm)
-    ? `Road gap = ${roadDistanceKm.toFixed(1)} km (threshold: ${roadThresholdKm} km)`
-    : 'Road distance unavailable (no usable road geometry)';
-  return `Sector ${id} lies beyond spatial threshold: School gap = ${formatFiniteDistanceKm(schoolDistanceKm)} (threshold: ${schoolThresholdKm} km), ${roadNote}.`;
+  return `Sector ${id} coverage: ${formatCoverageDistanceNote('school', schoolDistanceKm, schoolThresholdKm)}; ${formatCoverageDistanceNote('road', roadDistanceKm, roadThresholdKm)}.`;
 }
 
 export class GapDetectionService {
@@ -112,12 +128,7 @@ export class GapDetectionService {
    * Determine gap severity rating based on ratio of actual distance to acceptable threshold.
    */
   public static determineSeverity(distanceKm: number, thresholdKm: number): GapSeverity {
-    if (!Number.isFinite(distanceKm)) return 'Critical';
-    if (distanceKm <= thresholdKm) return 'Served';
-    const ratio = distanceKm / thresholdKm;
-    if (ratio >= 2.0) return 'Critical'; // > 2x acceptable distance
-    if (ratio >= 1.5) return 'High'; // 1.5x - 2.0x
-    return 'Moderate'; // 1.0x - 1.5x
+    return severityForDistanceRatio(calculateDistanceRatio(distanceKm, thresholdKm));
   }
 
   /**
@@ -225,8 +236,10 @@ export class GapDetectionService {
       const schoolDistKm = nearestSchoolRes ? nearestSchoolRes.distanceKm : Infinity;
       const roadDistKm = nearestRoadRes ? nearestRoadRes.distanceKm : Infinity;
 
-      const isSchoolUnderserved = schoolDistKm > schoolThreshold;
-      const isRoadUnderserved = roadDistKm > roadThreshold;
+      const schoolRatio = calculateDistanceRatio(nearestSchoolRes?.distanceKm, schoolThreshold);
+      const roadRatio = calculateDistanceRatio(nearestRoadRes?.distanceKm, roadThreshold);
+      const isSchoolUnderserved = schoolRatio == null || schoolRatio >= 1;
+      const isRoadUnderserved = roadRatio == null || roadRatio >= 1;
 
       // Compute actual network road distance if routing graph is available
       let networkDistKm: number | undefined;
@@ -251,12 +264,12 @@ export class GapDetectionService {
           primaryIssue = 'Road_Isolation';
         }
 
-        const maxRatio = Math.max(
-          nearestSchoolRes ? schoolDistKm / schoolThreshold : 2,
-          nearestRoadRes ? roadDistKm / roadThreshold : 2
+        const assessment = assessOverallGap(
+          nearestSchoolRes?.distanceKm,
+          schoolThreshold,
+          nearestRoadRes?.distanceKm,
+          roadThreshold
         );
-
-        const overallSeverity = this.determineSeverity(maxRatio * Math.min(schoolThreshold, roadThreshold), Math.min(schoolThreshold, roadThreshold));
 
         // Habitation buffer polygon (500m catchment)
         const habitationPolygon = SpatialUtils.createRadialBufferPolygon(habCoord, 0.45, 16);
@@ -290,11 +303,14 @@ export class GapDetectionService {
                 isUnderserved: isRoadUnderserved
               }
             : undefined,
-          schoolCoverageStatus: !nearestSchoolRes ? 'NO_FACILITY' : isSchoolUnderserved ? 'BEYOND_THRESHOLD' : 'WITHIN_THRESHOLD',
-          roadCoverageStatus: !nearestRoadRes ? 'NO_FACILITY' : isRoadUnderserved ? 'BEYOND_THRESHOLD' : 'WITHIN_THRESHOLD',
+          schoolCoverageStatus: coverageStatusForRatio(schoolRatio),
+          roadCoverageStatus: coverageStatusForRatio(roadRatio),
           primaryIssue,
-          overallSeverity,
-          distanceToThresholdRatio: Number(maxRatio.toFixed(2)),
+          overallSeverity: assessment.severity,
+          schoolDistanceToThresholdRatio: assessment.schoolRatio,
+          roadDistanceToThresholdRatio: assessment.roadRatio,
+          distanceToThresholdRatio: assessment.ratio,
+          severityBasis: assessment.severityBasis,
           notes: buildHabitationGapNotes(
             hab.name,
             schoolDistKm,
@@ -343,8 +359,10 @@ export class GapDetectionService {
       const schoolDistKm = nearestSchool ? nearestSchool.distanceKm : Infinity;
       const roadDistKm = nearestRoad ? nearestRoad.distanceKm : Infinity;
 
-      const isSchoolUnderserved = schoolDistKm > schoolThreshold;
-      const isRoadUnderserved = roadDistKm > roadThreshold;
+      const schoolRatio = calculateDistanceRatio(nearestSchool?.distanceKm, schoolThreshold);
+      const roadRatio = calculateDistanceRatio(nearestRoad?.distanceKm, roadThreshold);
+      const isSchoolUnderserved = schoolRatio == null || schoolRatio >= 1;
+      const isRoadUnderserved = roadRatio == null || roadRatio >= 1;
 
       if (isSchoolUnderserved || isRoadUnderserved) {
         let primaryIssue: UnderservedArea['primaryIssue'] = 'School_Gap';
@@ -354,12 +372,12 @@ export class GapDetectionService {
           primaryIssue = 'Road_Isolation';
         }
 
-        const maxRatio = Math.max(
-          nearestSchool ? schoolDistKm / schoolThreshold : 2,
-          nearestRoad ? roadDistKm / roadThreshold : 2
+        const assessment = assessOverallGap(
+          nearestSchool?.distanceKm,
+          schoolThreshold,
+          nearestRoad?.distanceKm,
+          roadThreshold
         );
-
-        const overallSeverity = this.determineSeverity(maxRatio * Math.min(schoolThreshold, roadThreshold), Math.min(schoolThreshold, roadThreshold));
 
         underservedAreas.push({
           id: cell.id,
@@ -387,11 +405,14 @@ export class GapDetectionService {
                 isUnderserved: isRoadUnderserved
               }
             : undefined,
-          schoolCoverageStatus: !nearestSchool ? 'NO_FACILITY' : isSchoolUnderserved ? 'BEYOND_THRESHOLD' : 'WITHIN_THRESHOLD',
-          roadCoverageStatus: !nearestRoad ? 'NO_FACILITY' : isRoadUnderserved ? 'BEYOND_THRESHOLD' : 'WITHIN_THRESHOLD',
+          schoolCoverageStatus: coverageStatusForRatio(schoolRatio),
+          roadCoverageStatus: coverageStatusForRatio(roadRatio),
           primaryIssue,
-          overallSeverity,
-          distanceToThresholdRatio: Number(maxRatio.toFixed(2)),
+          overallSeverity: assessment.severity,
+          schoolDistanceToThresholdRatio: assessment.schoolRatio,
+          roadDistanceToThresholdRatio: assessment.roadRatio,
+          distanceToThresholdRatio: assessment.ratio,
+          severityBasis: assessment.severityBasis,
           notes: buildGridCellGapNotes(
             cell.id,
             schoolDistKm,
@@ -514,7 +535,7 @@ export class GapDetectionService {
         geographicVsNetwork:
           'Geographic distance represents great-circle Haversine geodesic buffer radius across the surface, used for catchment zones. Network distance measures actual road route travel via Dijkstra on the road network graph. Straight-line distance does not represent actual road travel due to natural terrain winding and barriers.',
         severityCriteria:
-          'Critical: > 2.0x threshold distance; High: 1.5x - 2.0x threshold; Moderate: 1.0x - 1.5x threshold; Served: <= 1.0x threshold.'
+          'Distance ratios use actual geographic distance divided by the matching configured school or road threshold. No Gap / Served: < 1.0x; Moderate: >= 1.0x and < 1.5x; High: >= 1.5x and <= 2.0x; Critical: > 2.0x. If a required facility distance is unavailable, the existing Critical no-facility classification is retained and the overall ratio is null rather than fabricated.'
       }
     };
   }

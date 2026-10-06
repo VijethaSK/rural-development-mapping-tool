@@ -9,7 +9,7 @@ export interface GeoPolygon {
 }
 
 export type GapSeverity = 'Critical' | 'High' | 'Moderate' | 'Served';
-export type CoverageStatus = 'WITHIN_THRESHOLD' | 'BEYOND_THRESHOLD' | 'NO_FACILITY';
+export type CoverageStatus = 'WITHIN_THRESHOLD' | 'AT_THRESHOLD' | 'BEYOND_THRESHOLD' | 'NO_FACILITY';
 
 export interface UnderservedArea {
   id: string;
@@ -40,7 +40,10 @@ export interface UnderservedArea {
   roadCoverageStatus: CoverageStatus;
   primaryIssue: 'School_Gap' | 'Road_Isolation' | 'Dual_Deprivation' | 'Served';
   overallSeverity: GapSeverity;
-  distanceToThresholdRatio: number;
+  distanceToThresholdRatio: number | null;
+  schoolDistanceToThresholdRatio: number | null;
+  roadDistanceToThresholdRatio: number | null;
+  severityBasis: 'SCHOOL_DISTANCE' | 'ROAD_DISTANCE' | 'SCHOOL_AND_ROAD_DISTANCE' | 'MISSING_FACILITY_DISTANCE';
   notes: string;
 }
 

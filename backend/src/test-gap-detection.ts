@@ -72,7 +72,7 @@ async function runGapDetectionTests() {
     // -------------------------------------------------------------
     console.log('\n--- Test 4: Configurable Thresholds & Severity Classification ---');
     // Threshold = 3.0 km
-    const s1 = GapDetectionService.determineSeverity(2.5, 3.0); // <= 3.0 -> Served
+    const s1 = GapDetectionService.determineSeverity(2.5, 3.0); // < 3.0 -> Served
     const s2 = GapDetectionService.determineSeverity(4.0, 3.0); // 1.33x -> Moderate
     const s3 = GapDetectionService.determineSeverity(5.2, 3.0); // 1.73x -> High
     const s4 = GapDetectionService.determineSeverity(6.8, 3.0); // 2.26x -> Critical
@@ -208,14 +208,14 @@ async function runGapDetectionTests() {
       throw new Error(`Expected exactly 1 underserved habitation (Remote Hamlet), got ${underservedHabs.length}`);
     }
 
-    if (analysis3km.metrics.populationAffected !== 850) {
-      throw new Error(`Expected population affected = 850, got ${analysis3km.metrics.populationAffected}`);
+    if (analysis3km.metrics.populationInUnderservedHabitations !== 850 || analysis3km.metrics.populationAffected !== null) {
+      throw new Error(`Expected known habitation subtotal = 850 and overall affected population unavailable because grid-cell population is unknown, got subtotal=${analysis3km.metrics.populationInUnderservedHabitations}, overall=${analysis3km.metrics.populationAffected}`);
     }
 
     console.log(`✓ End-to-end analysis verified:`);
     console.log(`   - Total Habitations: ${analysis3km.metrics.totalHabitations}`);
     console.log(`   - Underserved Habitations: ${underservedHabs.length} (${underservedHabs[0].name})`);
-    console.log(`   - Affected Population: ${analysis3km.metrics.populationAffected} / ${analysis3km.metrics.totalPopulation}`);
+    console.log(`   - Population in Underserved Habitations: ${analysis3km.metrics.populationInUnderservedHabitations}; Overall Affected Population: ${analysis3km.metrics.populationAffected ?? 'Not available'}`);
     console.log(`   - Severity: ${underservedHabs[0].overallSeverity} (Ratio: ${underservedHabs[0].distanceToThresholdRatio}x threshold)`);
 
     // Verify non-hardcoded threshold: if schoolThreshold is increased to 10.0 km, Remote Hamlet becomes served!
@@ -235,8 +235,8 @@ async function runGapDetectionTests() {
     await Promise.all([School.deleteMany({}), Road.deleteMany({})]);
     const noFacilities = await GapDetectionService.detectUnderservedAreas({ panchayatId: String(testPanchayat._id), computeNetworkDistance: false, gridResolutionKm: 1.5 });
     const noFacilityHab = noFacilities.underservedAreas.find((area) => area.areaType === 'Habitation' && area.name === 'Remote Hamlet (Underserved)');
-    if (!noFacilityHab || noFacilityHab.overallSeverity !== 'Critical' || noFacilityHab.schoolCoverageStatus !== 'NO_FACILITY' || noFacilityHab.roadCoverageStatus !== 'NO_FACILITY' || noFacilityHab.distanceToThresholdRatio < 2) {
-      throw new Error('Missing schools and roads must yield an explicit Critical no-facility gap, not zero severity.');
+    if (!noFacilityHab || noFacilityHab.overallSeverity !== 'Critical' || noFacilityHab.schoolCoverageStatus !== 'NO_FACILITY' || noFacilityHab.roadCoverageStatus !== 'NO_FACILITY' || noFacilityHab.distanceToThresholdRatio !== null || noFacilityHab.severityBasis !== 'MISSING_FACILITY_DISTANCE') {
+      throw new Error('Missing schools and roads must retain explicit Critical no-facility status without a fabricated numeric ratio.');
     }
     await Road.create({ panchayatId: testPanchayat._id, name: 'Coverage road', ward: 'Ward 1', lineGeometry: { type: 'LineString', coordinates: [[77.748, 12.948], [77.752, 12.952]] } });
     const noSchool = await GapDetectionService.detectUnderservedAreas({ panchayatId: String(testPanchayat._id), computeNetworkDistance: false, gridResolutionKm: 1.5 });
@@ -247,7 +247,7 @@ async function runGapDetectionTests() {
     if (noRoad.underservedAreas.find(a => a.name === 'Central Village (Served)')?.roadCoverageStatus !== 'NO_FACILITY') throw new Error('No-roads case must expose NO_FACILITY for road coverage.');
     const noInputGrid = SpatialUtils.generateSpatialGrid({ minLat: 12.9, maxLat: 12.9, minLng: 77.7, maxLng: 77.7 }, 0.8);
     if (noInputGrid.length !== 0) throw new Error('Degenerate empty spatial bounds must not fabricate grid cells.');
-    console.log('✓ No-school/no-road case yields explicit NO_FACILITY statuses and Critical severity; empty bounds yield no grid cells.');
+    console.log('✓ No-school/no-road case yields explicit NO_FACILITY statuses and Critical severity with an unavailable ratio; empty bounds yield no grid cells.');
 
     console.log('\n===========================================================');
     console.log('  ALL GAP DETECTION & SPATIAL TESTS PASSED WITH 100% SUCCESS');

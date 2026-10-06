@@ -13,6 +13,7 @@ import {
 import { api, apiAuth } from '../api/client';
 import { useAuth } from '../store/auth';
 import { formatPercentage, formatPopulation, formatUnderservedHabitationsSummary } from '../utils/populationDisplay.mjs';
+import { criticalGapLegendText, formatCoverageStatus, formatDistanceRatio, formatGapSeverity, formatSeverityBasis } from '../utils/gapAnalysisSeverity.mjs';
 import {
   applyGapAnalysisIfCurrent,
   createGapAnalysisRequestGate,
@@ -248,6 +249,8 @@ export default function GapAnalysisPage() {
         return { color: '#dc2626', fillColor: '#ef4444', fillOpacity: 0.35 };
       case 'High':
         return { color: '#ea580c', fillColor: '#f97316', fillOpacity: 0.30 };
+      case 'Served':
+        return { color: '#059669', fillColor: '#10b981', fillOpacity: 0.18 };
       default:
         return { color: '#d97706', fillColor: '#f59e0b', fillOpacity: 0.22 };
     }
@@ -598,7 +601,7 @@ export default function GapAnalysisPage() {
                                 cell.overallSeverity
                               )}`}
                             >
-                              {cell.overallSeverity}
+                              {formatGapSeverity(cell.overallSeverity)}
                             </span>
                           </div>
                           <div className="mt-1 text-slate-600 space-y-0.5">
@@ -612,8 +615,14 @@ export default function GapAnalysisPage() {
                                 Nearest Road: <strong>{cell.nearestRoad.name}</strong> ({cell.nearestRoad.geographicDistanceKm.toFixed(1)} km)
                               </div>
                             )}
-                            <div className="text-red-600 font-semibold mt-1">
-                              Distance Ratio: {cell.distanceToThresholdRatio}x acceptable threshold
+                            <div className="mt-1 font-semibold">
+                              Overall Distance Ratio: {formatDistanceRatio(cell.distanceToThresholdRatio)}
+                              <span className="block text-[10px] font-normal text-slate-500">
+                                {formatSeverityBasis(cell.severityBasis)}
+                              </span>
+                              <span className="block text-[10px] font-normal text-slate-500">
+                                School {formatDistanceRatio(cell.schoolDistanceToThresholdRatio)} ({formatCoverageStatus(cell.schoolCoverageStatus)}) · Road {formatDistanceRatio(cell.roadDistanceToThresholdRatio)} ({formatCoverageStatus(cell.roadCoverageStatus)})
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -655,7 +664,7 @@ export default function GapAnalysisPage() {
                               hab.overallSeverity
                             )}`}
                           >
-                            {hab.overallSeverity}
+                              {formatGapSeverity(hab.overallSeverity)}
                           </span>
                         </div>
                         <div className="mt-1 text-slate-600 space-y-0.5">
@@ -676,6 +685,11 @@ export default function GapAnalysisPage() {
                               Nearest Motorable Road: <strong>{hab.nearestRoad.geographicDistanceKm.toFixed(1)} km</strong>
                             </div>
                           )}
+                          <div className="pt-1 border-t border-slate-200 text-[10px] text-slate-500">
+                            Overall distance ratio: <strong>{formatDistanceRatio(hab.distanceToThresholdRatio)}</strong>
+                            <br />School {formatDistanceRatio(hab.schoolDistanceToThresholdRatio)} ({formatCoverageStatus(hab.schoolCoverageStatus)}) · Road {formatDistanceRatio(hab.roadDistanceToThresholdRatio)} ({formatCoverageStatus(hab.roadCoverageStatus)})
+                            <br />{formatSeverityBasis(hab.severityBasis)}
+                          </div>
                         </div>
                       </div>
                     </Popup>
@@ -701,19 +715,23 @@ export default function GapAnalysisPage() {
             <div className="font-bold text-slate-800 dark:text-slate-200 mb-1">Spatial Gap Legend</div>
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-blue-500 border border-blue-300" />
-              <span>School Service Catchment (&le; {schoolThresholdKm} km)</span>
+              <span>School Service Catchment Radius ({schoolThresholdKm} km)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-emerald-500/40 border border-emerald-600" />
+              <span>No Gap / Within Acceptable Threshold (&lt; 1.0x; not shaded in the underserved layer)</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded bg-red-500/50 border border-red-600" />
-              <span>Critical Gap (&gt; 2.0x threshold)</span>
+              <span>Critical Gap ({criticalGapLegendText})</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded bg-orange-500/50 border border-orange-600" />
-              <span>High Gap (1.5x - 2.0x threshold)</span>
+              <span>High Gap (&ge; 1.5x and &le; 2.0x threshold)</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded bg-amber-500/50 border border-amber-600" />
-              <span>Moderate Gap (1.0x - 1.5x threshold)</span>
+              <span>Moderate Gap (&ge; 1.0x and &lt; 1.5x threshold)</span>
             </div>
             <div className="border-t pt-1 mt-1 text-[10px] text-slate-500">
               🏘️ Village Habitation | 🏫 Public School
@@ -751,7 +769,7 @@ export default function GapAnalysisPage() {
                 className="px-2.5 py-1.5 rounded-lg border dark:bg-slate-900 dark:border-slate-700"
               >
                 <option value="All">All Severities</option>
-                <option value="Critical">Critical (&gt; 2.0x)</option>
+                <option value="Critical">Critical ({criticalGapLegendText})</option>
                 <option value="High">High (1.5x - 2.0x)</option>
                 <option value="Moderate">Moderate (1.0x - 1.5x)</option>
               </select>
@@ -812,7 +830,7 @@ export default function GapAnalysisPage() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-red-600 font-semibold">No facility ({area.schoolCoverageStatus})</span>
+                          <span className="text-red-600 font-semibold">{formatCoverageStatus(area.schoolCoverageStatus)}</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 font-mono">
@@ -840,7 +858,7 @@ export default function GapAnalysisPage() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-red-600 font-semibold">No facility ({area.roadCoverageStatus})</span>
+                          <span className="text-red-600 font-semibold">{formatCoverageStatus(area.roadCoverageStatus)}</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-center">
@@ -849,7 +867,10 @@ export default function GapAnalysisPage() {
                             area.overallSeverity
                           )}`}
                         >
-                          {area.overallSeverity} ({area.distanceToThresholdRatio}x)
+                          {formatGapSeverity(area.overallSeverity)} ({formatDistanceRatio(area.distanceToThresholdRatio)})
+                          {area.severityBasis === 'MISSING_FACILITY_DISTANCE' && (
+                            <span className="block text-[9px] font-normal">No facility distance available</span>
+                          )}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-semibold">

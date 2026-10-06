@@ -13,6 +13,7 @@ import { commitMapDataIfCurrent, createMapBootstrapGuard, createMapRequestGate, 
 import { isValidGapCenter, toLeafletPolygonPositions } from '../utils/gapGeometry.mjs';
 import { toFacilityMarkerPosition } from '../utils/facilityMarkerPosition.mjs';
 import { formatPopulation } from '../utils/populationDisplay.mjs';
+import { formatCoverageStatus, formatDistanceRatio, formatGapSeverity, formatSeverityBasis } from '../utils/gapAnalysisSeverity.mjs';
 import HeatmapOverlay from '../components/HeatmapOverlay';
 import ScoreExplanationModal from '../components/ScoreExplanationModal';
 import ClusterInspectionModal from '../components/ClusterInspectionModal';
@@ -1160,18 +1161,24 @@ export default function MapPage() {
             underservedAreas.map((gap) => {
               const polygonPositions = toLeafletPolygonPositions(gap.polygonGeometry);
               const validCenter = isValidGapCenter(gap.center);
-              const isHigh = gap.overallSeverity === 'Critical' || gap.overallSeverity === 'High';
-              const fillColor = isHigh ? '#dc2626' : '#ea580c';
+              const severityStyle = gap.overallSeverity === 'Critical'
+                ? { fillColor: '#dc2626', badgeClass: 'bg-red-600' }
+                : gap.overallSeverity === 'High'
+                  ? { fillColor: '#ea580c', badgeClass: 'bg-orange-600' }
+                  : gap.overallSeverity === 'Moderate'
+                    ? { fillColor: '#f59e0b', badgeClass: 'bg-amber-600' }
+                    : { fillColor: '#10b981', badgeClass: 'bg-emerald-600' };
+              const fillColor = severityStyle.fillColor;
               const popup = (
                 <div className="p-1 min-w-[220px] text-xs space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-slate-900">{gap.name}</span>
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${
-                        isHigh ? 'bg-red-600' : 'bg-amber-600'
+                        severityStyle.badgeClass
                       }`}
                     >
-                      {gap.overallSeverity} Gap
+                      {formatGapSeverity(gap.overallSeverity)}
                     </span>
                   </div>
                   <p className="text-slate-600 text-[11px]">{gap.notes}</p>
@@ -1191,6 +1198,16 @@ export default function MapPage() {
                         </strong>
                       </div>
                     )}
+                    {gap.nearestRoad && (
+                      <div>
+                        Nearest usable road: <strong>{gap.nearestRoad.name} ({gap.nearestRoad.geographicDistanceKm.toFixed(3)} km vs {gap.nearestRoad.thresholdKm} km limit)</strong>
+                      </div>
+                    )}
+                    <div className="text-[10px]">
+                      Overall distance ratio: <strong>{formatDistanceRatio(gap.distanceToThresholdRatio)}</strong>
+                      <br />School {formatDistanceRatio(gap.schoolDistanceToThresholdRatio)} ({formatCoverageStatus(gap.schoolCoverageStatus)}) · Road {formatDistanceRatio(gap.roadDistanceToThresholdRatio)} ({formatCoverageStatus(gap.roadCoverageStatus)})
+                      <br />{formatSeverityBasis(gap.severityBasis)}
+                    </div>
                     <div>
                       Population Affected:{' '}
                       <strong>{formatPopulation(gap.populationAffected)}{gap.populationAffected == null ? '' : ' citizens'}</strong>
