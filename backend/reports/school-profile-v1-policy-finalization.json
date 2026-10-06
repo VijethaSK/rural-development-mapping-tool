@@ -1,0 +1,511 @@
+{
+  "profileId": "SCHOOL_PRIORITY_V1",
+  "profileVersion": "1.0.0",
+  "decisionDate": "2026-10-06",
+  "weights": {
+    "approvalStatus": "APPROVED_BY_PROJECT_OWNER",
+    "statisticalDerivation": false,
+    "values": {
+      "condition": 0.3,
+      "populationServed": 0.2,
+      "trafficLevel": 0.15,
+      "complaintsCount": 0.15,
+      "lastMaintenanceDate": 0.1,
+      "alternativeDistanceKm": 0.1
+    },
+    "total": 1
+  },
+  "factorSemantics": {
+    "approvalStatus": "APPROVED_BY_PROJECT_OWNER",
+    "condition": {
+      "meaning": "Verified physical-condition assessment for the identified school asset.",
+      "acceptedValues": [
+        "Good",
+        "Average",
+        "Needs_Maintenance",
+        "Poor",
+        "Bad"
+      ],
+      "approvedNormalization": {
+        "Good": 15,
+        "Average": 40,
+        "Needs_Maintenance": 65,
+        "Poor": 85,
+        "Bad": 100
+      },
+      "evidence": "Documented and verified condition assessment; status is not condition."
+    },
+    "populationServed": {
+      "meaning": "Official students enrolled/served by the identified school for a stated academic reference period.",
+      "unit": "students",
+      "forbiddenSubstitutes": [
+        "Panchayat population",
+        "generic local population",
+        "reported quantity",
+        "unverified estimate"
+      ],
+      "evidence": "Official school-specific evidence identifying the school and academic period."
+    },
+    "trafficLevel": {
+      "meaning": "Enrollment / officially sanctioned student capacity * 100.",
+      "evidence": "Official enrollment and sanctioned capacity supported for the same or documented compatible period.",
+      "missingCapacity": "UNAVAILABLE"
+    },
+    "complaintsCount": {
+      "meaning": "Verified infrastructure-related complaints about the specific school in the configured reporting period.",
+      "zeroRule": "Zero is valid only with complete declared coverage; missing/incomplete coverage is unavailable."
+    },
+    "lastMaintenanceDate": {
+      "meaning": "Actual completion date of the latest qualifying maintenance/repair event for the school asset.",
+      "exclusions": [
+        "assignment creation",
+        "verification timestamp",
+        "source publication date"
+      ],
+      "ageReference": "Explicit scoring asOfDate"
+    },
+    "alternativeDistanceKm": {
+      "meaning": "Network distance to the nearest operational equivalent school.",
+      "requirements": [
+        "reliable geographic provenance at origin and destination",
+        "identified equivalent school",
+        "declared comparison inventory",
+        "network metric"
+      ],
+      "forbidden": [
+        "straight-line distance",
+        "approximate/unverified coordinates",
+        "arbitrary nearby facility",
+        "generic Panchayat distance"
+      ]
+    }
+  },
+  "candidateNormalization": {
+    "approvalStatus": "SUPERSEDED_BY_FINAL_OWNER_APPROVAL",
+    "condition": {
+      "status": "APPROVED",
+      "map": {
+        "Good": 15,
+        "Average": 40,
+        "Needs_Maintenance": 65,
+        "Poor": 85,
+        "Bad": 100
+      }
+    },
+    "populationServed": {
+      "unit": "whole students per academic reference period",
+      "bands": [
+        {
+          "minInclusive": 0,
+          "maxInclusive": 250,
+          "score": 0
+        },
+        {
+          "minInclusive": 251,
+          "maxInclusive": 500,
+          "score": 25
+        },
+        {
+          "minInclusive": 501,
+          "maxInclusive": 1000,
+          "score": 50
+        },
+        {
+          "minInclusive": 1001,
+          "maxInclusive": 1500,
+          "score": 75
+        },
+        {
+          "minInclusive": 1501,
+          "maxInclusive": null,
+          "score": 100
+        }
+      ],
+      "direction": "PROPOSED_HIGHER_COUNT_HIGHER_SERVICE_IMPACT_SCORE"
+    },
+    "utilization": {
+      "formula": "enrollment / officially sanctioned student capacity * 100",
+      "bands": [
+        {
+          "minInclusivePercent": 0,
+          "maxExclusivePercent": 60,
+          "ordinal": "Low",
+          "score": 0
+        },
+        {
+          "minInclusivePercent": 60,
+          "maxExclusivePercent": 90,
+          "ordinal": "Medium",
+          "score": 50
+        },
+        {
+          "minInclusivePercent": 90,
+          "maxExclusivePercent": null,
+          "ordinal": "High",
+          "score": 100
+        }
+      ],
+      "periodRule": "Same reference period, or a documented compatible period.",
+      "status": "PENDING_POLICY_CONFIRMATION"
+    },
+    "complaintsCount": {
+      "proposedReportingPeriod": "TRAILING_12_MONTHS",
+      "bands": [
+        {
+          "minInclusive": 0,
+          "maxInclusive": 0,
+          "score": 0
+        },
+        {
+          "minInclusive": 1,
+          "maxInclusive": 1,
+          "score": 25
+        },
+        {
+          "minInclusive": 2,
+          "maxInclusive": 3,
+          "score": 50
+        },
+        {
+          "minInclusive": 4,
+          "maxInclusive": 5,
+          "score": 75
+        },
+        {
+          "minInclusive": 6,
+          "maxInclusive": null,
+          "score": 100
+        }
+      ],
+      "status": "PENDING_POLICY_CONFIRMATION"
+    },
+    "maintenanceAgeDays": {
+      "bands": [
+        {
+          "minInclusive": 0,
+          "maxInclusive": 365,
+          "score": 0
+        },
+        {
+          "minInclusive": 366,
+          "maxInclusive": 730,
+          "score": 25
+        },
+        {
+          "minInclusive": 731,
+          "maxInclusive": 1095,
+          "score": 50
+        },
+        {
+          "minInclusive": 1096,
+          "maxInclusive": 1460,
+          "score": 75
+        },
+        {
+          "minInclusive": 1461,
+          "maxInclusive": null,
+          "score": 100
+        }
+      ],
+      "status": "PENDING_POLICY_CONFIRMATION"
+    },
+    "alternativeDistanceKm": {
+      "bands": [
+        {
+          "minInclusive": 0,
+          "maxExclusive": 1,
+          "score": 0
+        },
+        {
+          "minInclusive": 1,
+          "maxExclusive": 3,
+          "score": 25
+        },
+        {
+          "minInclusive": 3,
+          "maxExclusive": 5,
+          "score": 50
+        },
+        {
+          "minInclusive": 5,
+          "maxExclusive": 10,
+          "score": 75
+        },
+        {
+          "minInclusive": 10,
+          "maxExclusive": null,
+          "score": 100
+        }
+      ],
+      "status": "PENDING_POLICY_CONFIRMATION"
+    },
+    "priorityLevelThresholds": {
+      "proposed": {
+        "critical": 80,
+        "high": 60,
+        "medium": 40,
+        "low": 0
+      },
+      "status": "PENDING_POLICY_CONFIRMATION",
+      "legacyValuesReused": false
+    },
+    "supersededBy": "SCHOOL_PRIORITY_V1 v1.0.0 final owner approval"
+  },
+  "runtime": {
+    "profileStatus": "ACTIVE",
+    "approvalStatus": "APPROVED_BY_PROJECT_OWNER",
+    "inApprovedProductionRegistry": true,
+    "resolvesForSchool": true,
+    "otherProfilesActivated": [],
+    "legacyVarthurChanged": false,
+    "crossProfileRanking": "DISABLED"
+  },
+  "activationBlockers": [],
+  "safety": {
+    "databaseAccessed": false,
+    "databaseWrites": 0,
+    "evidenceWritten": false,
+    "scoresCreatedOrChanged": false,
+    "priorityScorableChanged": false,
+    "mangaloreRecordEnabled": false,
+    "importerOrSeedRun": false,
+    "deploymentPerformed": false,
+    "inMemoryTestFixtureScoring": true,
+    "productionOrDatabaseScoreChanged": false,
+    "testEvidencePersisted": false,
+    "profileActivatedInCode": true
+  },
+  "finalOwnerApproval": {
+    "profileId": "SCHOOL_PRIORITY_V1",
+    "profileVersion": "1.0.0",
+    "approvedAt": "2026-10-06",
+    "approvalStatus": "APPROVED_BY_PROJECT_OWNER",
+    "weights": {
+      "condition": 0.3,
+      "populationServed": 0.2,
+      "trafficLevel": 0.15,
+      "complaintsCount": 0.15,
+      "lastMaintenanceDate": 0.1,
+      "alternativeDistanceKm": 0.1
+    },
+    "totalWeight": 1,
+    "condition": {
+      "Good": 15,
+      "Average": 40,
+      "Needs_Maintenance": 65,
+      "Poor": 85,
+      "Bad": 100
+    },
+    "populationServed": {
+      "unit": "students",
+      "bands": [
+        {
+          "minInclusive": 0,
+          "maxInclusive": 250,
+          "score": 20
+        },
+        {
+          "minInclusive": 251,
+          "maxInclusive": 500,
+          "score": 40
+        },
+        {
+          "minInclusive": 501,
+          "maxInclusive": 1000,
+          "score": 60
+        },
+        {
+          "minInclusive": 1001,
+          "maxInclusive": 2000,
+          "score": 80
+        },
+        {
+          "minExclusive": 2000,
+          "maxInclusive": null,
+          "score": 100
+        }
+      ]
+    },
+    "utilization": {
+      "formula": "enrollment / officially sanctioned student capacity * 100",
+      "roundBeforeClassification": false,
+      "bands": [
+        {
+          "minInclusive": 0,
+          "maxExclusive": 50,
+          "score": 20
+        },
+        {
+          "minInclusive": 50,
+          "maxExclusive": 75,
+          "score": 40
+        },
+        {
+          "minInclusive": 75,
+          "maxExclusive": 90,
+          "score": 60
+        },
+        {
+          "minInclusive": 90,
+          "maxExclusive": 100,
+          "score": 80
+        },
+        {
+          "minInclusive": 100,
+          "maxExclusive": null,
+          "score": 100
+        }
+      ],
+      "periodRule": "Same academic year or a documented compatible period; missing sanctioned capacity is unavailable."
+    },
+    "complaints": {
+      "period": "Previous 12 calendar months ending on evidence review date",
+      "bands": [
+        {
+          "count": 0,
+          "score": 0
+        },
+        {
+          "count": 1,
+          "score": 20
+        },
+        {
+          "count": 2,
+          "score": 40
+        },
+        {
+          "count": 3,
+          "score": 60
+        },
+        {
+          "count": 4,
+          "score": 80
+        },
+        {
+          "minCount": 5,
+          "score": 100
+        }
+      ],
+      "missingOrIncompleteCoverage": "UNAVAILABLE"
+    },
+    "maintenanceAge": {
+      "referenceDate": "Accepted evidence review date",
+      "method": "Calendar anniversaries, not fixed day approximations",
+      "bands": [
+        {
+          "minYearsInclusive": 0,
+          "maxYearsExclusive": 1,
+          "score": 10
+        },
+        {
+          "minYearsInclusive": 1,
+          "maxYearsExclusive": 2,
+          "score": 30
+        },
+        {
+          "minYearsInclusive": 2,
+          "maxYearsExclusive": 3,
+          "score": 50
+        },
+        {
+          "minYearsInclusive": 3,
+          "maxYearsExclusive": 5,
+          "score": 75
+        },
+        {
+          "minYearsInclusive": 5,
+          "maxYearsExclusive": null,
+          "score": 100
+        }
+      ],
+      "exactAnniversariesUseHigherBand": true
+    },
+    "accessibility": {
+      "unit": "verified network kilometers",
+      "bands": [
+        {
+          "minInclusive": 0,
+          "maxExclusive": 1,
+          "score": 10
+        },
+        {
+          "minInclusive": 1,
+          "maxExclusive": 2,
+          "score": 30
+        },
+        {
+          "minInclusive": 2,
+          "maxExclusive": 5,
+          "score": 60
+        },
+        {
+          "minInclusive": 5,
+          "maxExclusive": 10,
+          "score": 80
+        },
+        {
+          "minInclusive": 10,
+          "maxExclusive": null,
+          "score": 100
+        }
+      ]
+    },
+    "priorityLevels": {
+      "critical": {
+        "minInclusive": 80,
+        "maxInclusive": 100
+      },
+      "high": {
+        "minInclusive": 60,
+        "maxExclusive": 80
+      },
+      "medium": {
+        "minInclusive": 40,
+        "maxExclusive": 60
+      },
+      "low": {
+        "minInclusive": 0,
+        "maxExclusive": 40
+      }
+    }
+  },
+  "compatibility": {
+    "canCoexistWithLegacyVarthur": true,
+    "legacyBehavior": "Unchanged, separate legacy calculation.",
+    "crossProfileComparisonAllowed": false,
+    "comparisonRule": "Rank only within the same profile/version.",
+    "productionActivationAllowedNow": true
+  },
+  "supersedingOwnerDecision": {
+    "date": "2026-10-06",
+    "profileId": "SCHOOL_PRIORITY_V1",
+    "profileVersion": "1.0.0",
+    "factorSemantics": "APPROVED_BY_PROJECT_OWNER",
+    "approvedWeights": {
+      "condition": 0.3,
+      "populationServed": 0.2,
+      "trafficLevel": 0.15,
+      "complaintsCount": 0.15,
+      "lastMaintenanceDate": 0.1,
+      "alternativeDistanceKm": 0.1
+    },
+    "totalWeight": 1,
+    "approvedBoundarySemantics": "See finalOwnerApproval; exact boundaries are covered by profile tests.",
+    "runtimeStatus": "ACTIVE",
+    "supersedesPriorUnresolvedSemantics": true
+  },
+  "allSixFactorsApplicable": {
+    "decision": "APPROVED",
+    "explanation": "All six factors apply to the School V1 individual-school profile."
+  },
+  "unresolvedPolicyQuestions": [],
+  "totals": {
+    "approvedWeightTotal": 1,
+    "allSixApplicable": true
+  },
+  "limitations": [
+    "The approved School V1 weights are an explicit policy-owner selection, not statistically derived.",
+    "The active profile does not create evidence or make an infrastructure record eligible without accepted, complete evidence and explicit existing eligibility.",
+    "Five Mangalore candidates previously researched had no supported factors; no Mangalore source record is enabled by this policy activation."
+  ]
+}

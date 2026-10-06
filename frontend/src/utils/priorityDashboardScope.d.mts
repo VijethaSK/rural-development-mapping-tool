@@ -1,4 +1,4 @@
-import type { PriorityAvailability, PriorityStats, RankedInfrastructure } from '../types/priority';
+import type { PriorityAvailability, PriorityEvidenceFactorReadiness, PriorityStats, RankedInfrastructure } from '../types/priority';
 
 export function resolveInitialPriorityPanchayat(
   panchayats: Array<{ _id: string; name: string }>,
@@ -20,16 +20,19 @@ export function getPriorityAvailabilityDisplay(availability?: PriorityAvailabili
   missingScoringInputs: PriorityAvailability['missingScoringInputs'];
   dataQualityWarnings: PriorityAvailability['dataQualityWarnings'];
   coordinateProvenance: PriorityAvailability['coordinateProvenance'] | null;
+  factorReadiness: PriorityEvidenceFactorReadiness[];
 };
 export function getPriorityDisplaySummary(items: RankedInfrastructure[], stats: PriorityStats): {
   total: number;
   scored: number;
   unscored: number;
+  scoredProfileCount: number;
   critical: number;
   high: number;
   medium: number;
   low: number;
   averageScore: number | null;
+  averageScoreUnavailableReason: string | null;
 };
 export function getPriorityEmptyState(input: {
   selectedPanchayat: boolean;
@@ -44,6 +47,15 @@ export function filterAndSortPriorityItems(
   items: RankedInfrastructure[],
   filters: { typeFilter: string; priorityFilter: string; searchTerm: string; sortBy: 'score' | 'complaints' | 'population' }
 ): RankedInfrastructure[];
+export function groupScoredPriorityItems(
+  items: RankedInfrastructure[],
+  filters: { typeFilter: string; priorityFilter: string; searchTerm: string; sortBy: 'score' | 'complaints' | 'population' }
+): Array<{
+  key: string;
+  profile: RankedInfrastructure['scoringProfile'] | null;
+  infrastructureType: string;
+  items: RankedInfrastructure[];
+}>;
 
 export interface PriorityRequest {
   generation: number;

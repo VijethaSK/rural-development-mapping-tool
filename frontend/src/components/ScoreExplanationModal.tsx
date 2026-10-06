@@ -1,5 +1,5 @@
 import React from 'react';
-import { RankedInfrastructure, PriorityExplanation } from '../types/priority';
+import { RankedInfrastructure, PriorityExplanation, TypeSpecificPriorityExplanation } from '../types/priority';
 import PriorityAvailabilityDetails from './PriorityAvailabilityDetails';
 
 interface ScoreExplanationModalProps {
@@ -18,11 +18,17 @@ export default function ScoreExplanationModal({ asset, onClose }: ScoreExplanati
             <div><span className="text-xs uppercase text-slate-500">{asset.type}</span><h2 className="text-xl font-bold">{asset.name}</h2></div>
             <button onClick={onClose} aria-label="Close modal" className="text-2xl">×</button>
           </div>
-          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            Priority score unavailable under the current source-record eligibility policy.
-          </p>
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <strong className="block">Not Yet Scoreable</strong>
+            <span className="block mt-1">Scoring status: {asset.scoringStatus ?? 'UNAVAILABLE'}</span>
+          </div>
           <div className="mt-4">
-            <PriorityAvailabilityDetails availability={asset.priorityAvailability} />
+            <PriorityAvailabilityDetails
+              availability={asset.priorityAvailability}
+              scoringProfile={asset.scoringProfile}
+              factorReadiness={asset.factorReadiness}
+              applicableFactors={asset.applicableFactors}
+            />
           </div>
           {asset.missingDataFields && asset.missingDataFields.length > 0 && (
             <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
@@ -35,9 +41,10 @@ export default function ScoreExplanationModal({ asset, onClose }: ScoreExplanati
   }
   const score = asset.priorityScore;
 
-  const explanation: PriorityExplanation | undefined =
-    asset.priorityExplanation || (asset as any).explanation;
-  const factors = explanation?.factors;
+  const explanation = (asset.priorityExplanation || asset.explanation) as PriorityExplanation | TypeSpecificPriorityExplanation | undefined;
+  const isProfileExplanation = Boolean(explanation && 'profileId' in explanation);
+  const profileExplanation = isProfileExplanation ? explanation as TypeSpecificPriorityExplanation : null;
+  const legacyExplanation = explanation && !isProfileExplanation ? explanation as PriorityExplanation : null;
 
   const getPriorityBadgeClass = (level: string) => {
     switch (level) {
@@ -59,49 +66,85 @@ export default function ScoreExplanationModal({ asset, onClose }: ScoreExplanati
     return 'bg-emerald-500';
   };
 
-  const factorRows = factors
+  const profileFactorLabels: Record<string, { name: string; icon: string }> = {
+    condition: { name: 'Condition', icon: '🏗️' },
+    complaintsCount: { name: 'Complaints', icon: '📢' },
+    populationServed: { name: 'Population Served', icon: '👥' },
+    trafficLevel: { name: 'Utilization', icon: '📊' },
+    lastMaintenanceDate: { name: 'Maintenance Age', icon: '⏳' },
+    alternativeDistanceKm: { name: 'Accessibility', icon: '📍' }
+  };
+  const factorRows = profileExplanation
+    ? profileExplanation.applicableFactors.flatMap((factor) => {
+        const data = profileExplanation.factors[factor];
+        if (!data) return [];
+        const label = profileFactorLabels[factor] || { name: factor, icon: '•' };
+        return [{
+          key: factor, name: label.name, icon: label.icon, description: data.description,
+          raw: data.rawValue, score: data.normalizedScore, weight: data.weight, contribution: data.contribution
+        }];
+      })
+    : legacyExplanation
     ? [
         {
           key: 'condition',
           name: 'Physical Condition',
           icon: '🏗️',
           description: 'Structural integrity & distress evaluation',
-          data: factors.condition,
+          raw: legacyExplanation.factors.condition.raw,
+          score: legacyExplanation.factors.condition.score,
+          weight: legacyExplanation.factors.condition.weight,
+          contribution: legacyExplanation.factors.condition.contribution,
         },
         {
           key: 'complaints',
           name: 'Citizen Complaints',
           icon: '📢',
           description: 'Direct community reports & unresolved grievances',
-          data: factors.complaints,
+          raw: legacyExplanation.factors.complaints.raw,
+          score: legacyExplanation.factors.complaints.score,
+          weight: legacyExplanation.factors.complaints.weight,
+          contribution: legacyExplanation.factors.complaints.contribution,
         },
         {
           key: 'population',
           name: 'Population Served',
           icon: '👥',
           description: 'Residents and students dependent on this asset',
-          data: factors.population,
+          raw: legacyExplanation.factors.population.raw,
+          score: legacyExplanation.factors.population.score,
+          weight: legacyExplanation.factors.population.weight,
+          contribution: legacyExplanation.factors.population.contribution,
         },
         {
           key: 'traffic',
           name: 'Traffic / Utilization',
           icon: '🚗',
           description: 'Volume of movement & public usage intensity',
-          data: factors.traffic,
+          raw: legacyExplanation.factors.traffic.raw,
+          score: legacyExplanation.factors.traffic.score,
+          weight: legacyExplanation.factors.traffic.weight,
+          contribution: legacyExplanation.factors.traffic.contribution,
         },
         {
           key: 'maintenanceAge',
           name: 'Maintenance Age',
           icon: '⏳',
           description: 'Elapsed time since last formal repair/service',
-          data: factors.maintenanceAge,
+          raw: legacyExplanation.factors.maintenanceAge.raw,
+          score: legacyExplanation.factors.maintenanceAge.score,
+          weight: legacyExplanation.factors.maintenanceAge.weight,
+          contribution: legacyExplanation.factors.maintenanceAge.contribution,
         },
         {
           key: 'alternativeDistance',
           name: 'Alternative Distance',
           icon: '📍',
           description: 'Distance to closest backup facility or main road',
-          data: factors.alternativeDistance,
+          raw: legacyExplanation.factors.alternativeDistance.raw,
+          score: legacyExplanation.factors.alternativeDistance.score,
+          weight: legacyExplanation.factors.alternativeDistance.weight,
+          contribution: legacyExplanation.factors.alternativeDistance.contribution,
         },
       ]
     : [];
@@ -151,7 +194,9 @@ export default function ScoreExplanationModal({ asset, onClose }: ScoreExplanati
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
-                Multi-Criteria Priority Index
+                {asset.scoringProfile && asset.scoringProfile.status !== 'UNAVAILABLE'
+                  ? `${asset.scoringProfile.profileId} v${asset.scoringProfile.profileVersion}`
+                  : 'Legacy Multi-Criteria Priority Index'}
               </div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-4xl font-extrabold tracking-tight">
@@ -227,7 +272,7 @@ export default function ScoreExplanationModal({ asset, onClose }: ScoreExplanati
                 {factorRows.map((f) => {
                   const percentOfTotal =
                     score > 0
-                      ? ((f.data.contribution / score) * 100).toFixed(1)
+                      ? ((f.contribution / score) * 100).toFixed(1)
                       : '0.0';
 
                   return (
@@ -242,16 +287,16 @@ export default function ScoreExplanationModal({ asset, onClose }: ScoreExplanati
                         </div>
                       </td>
                       <td className="py-2 px-3 font-mono text-xs text-slate-700 dark:text-slate-300">
-                        {String(f.data.raw)}
+                        {String(f.raw)}
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-xs">
-                        <span className="font-semibold">{f.data.score}</span> / 100
+                        <span className="font-semibold">{f.score}</span> / 100
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-xs text-slate-600 dark:text-slate-400">
-                        {(f.data.weight * 100).toFixed(0)}%
+                        {(f.weight * 100).toFixed(0)}%
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
-                        +{f.data.contribution.toFixed(2)} pts
+                        +{f.contribution.toFixed(2)} pts
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-xs text-slate-500">
                         {percentOfTotal}%

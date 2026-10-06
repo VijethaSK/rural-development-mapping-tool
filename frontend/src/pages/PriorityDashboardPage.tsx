@@ -10,7 +10,7 @@ import {
   applyPriorityResultIfCurrent,
   buildPriorityRequestPath,
   createPriorityRequestGate,
-  filterAndSortPriorityItems,
+  groupScoredPriorityItems,
   getUnavailablePriorityItems,
   shouldShowUnavailablePrioritySection,
   getPriorityDisplaySummary,
@@ -184,9 +184,10 @@ export default function PriorityDashboardPage() {
     }
   };
 
-  const filteredAssets = useMemo(() => filterAndSortPriorityItems(assets, {
+  const rankedGroups = useMemo(() => groupScoredPriorityItems(assets, {
     typeFilter, priorityFilter, searchTerm, sortBy
   }), [assets, typeFilter, priorityFilter, searchTerm, sortBy]);
+  const filteredAssets = useMemo(() => rankedGroups.flatMap((group) => group.items), [rankedGroups]);
   const unavailableAssets = useMemo(() => getUnavailablePriorityItems(assets), [assets]);
   const showUnavailableSection = shouldShowUnavailablePrioritySection({ loading, error, items: assets });
 
@@ -202,8 +203,8 @@ export default function PriorityDashboardPage() {
   });
 
   const topCriticalAssets = useMemo(() => {
-    return assets.filter((asset) => asset.priorityScore != null && asset.priorityLevel !== 'Unavailable').slice(0, 3);
-  }, [assets]);
+    return rankedGroups.length === 1 ? rankedGroups[0].items.slice(0, 3) : [];
+  }, [rankedGroups]);
 
   const getPriorityBadge = (level: RankedPriorityLevel) => {
     switch (level) {
@@ -251,14 +252,13 @@ export default function PriorityDashboardPage() {
             <span className="px-2 py-0.5 text-xs font-bold uppercase rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300">
               Phase 3 Intelligence
             </span>
-            <span className="text-xs text-slate-500">MCDA Simple Additive Weighting</span>
+            <span className="text-xs text-slate-500">Profile-aware decision support</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
             Infrastructure Priority & Decision Engine
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
-            Objective, data-driven prioritization ranking rural infrastructure across physical condition,
-            citizen complaints, population served, traffic, maintenance age, and isolation distance.
+            Scores and factor explanations follow the approved scoring profile for each asset. Records without complete accepted evidence remain outside ranked results.
           </p>
         </div>
 
@@ -379,9 +379,17 @@ export default function PriorityDashboardPage() {
             <div className="text-2xl font-bold mt-1 text-blue-600 dark:text-blue-400">
               {displaySummary.averageScore == null ? 'Not available' : displaySummary.averageScore.toFixed(1)}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">Scored assets only · 0–100</div>
+            <div className="text-xs text-slate-400 mt-0.5">
+              {displaySummary.averageScoreUnavailableReason || 'Scored assets only · 0–100'}
+            </div>
           </div>
         </div>
+      )}
+
+      {displaySummary && displaySummary.scoredProfileCount > 1 && (
+        <p role="note" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+          Scored assets span {displaySummary.scoredProfileCount} profiles. Rankings stay within each profile; scores are not compared across profiles.
+        </p>
       )}
 
       {/* Top 3 High Priority Attention Banner */}
@@ -394,7 +402,9 @@ export default function PriorityDashboardPage() {
                 Top Infrastructure Requiring Immediate Attention
               </h2>
             </div>
-            <span className="text-xs text-slate-500">Highest Multi-Factor Urgency</span>
+            <span className="text-xs text-slate-500">
+              {rankedGroups[0]?.profile ? `${rankedGroups[0].profile.profileId} v${rankedGroups[0].profile.profileVersion}` : 'Highest within the current profile'}
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -573,7 +583,15 @@ export default function PriorityDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {filteredAssets.map((asset, index) => (
+                {rankedGroups.flatMap((group) => [
+                  <tr key={`profile-${group.key}`} className="bg-slate-100 dark:bg-slate-900/70">
+                    <td colSpan={9} className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {group.profile
+                        ? `${group.profile.profileId} v${group.profile.profileVersion} · ${group.infrastructureType}`
+                        : `${group.infrastructureType} · profile metadata unavailable`}
+                    </td>
+                  </tr>,
+                  ...group.items.map((asset, index) => (
                   <tr
                     key={asset._id}
                     className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition"
@@ -649,7 +667,8 @@ export default function PriorityDashboardPage() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  ))
+                ])}
               </tbody>
             </table>
           </div>
@@ -680,10 +699,15 @@ export default function PriorityDashboardPage() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">{asset.type}</p>
                   </div>
                   <span className="rounded-full border border-slate-300 px-2.5 py-0.5 text-xs font-bold text-slate-600 dark:border-slate-600 dark:text-slate-300">
-                    Priority unavailable
+                    Not Yet Scoreable · {asset.scoringStatus ?? 'UNAVAILABLE'}
                   </span>
                 </div>
-                <PriorityAvailabilityDetails availability={asset.priorityAvailability} />
+                <PriorityAvailabilityDetails
+                  availability={asset.priorityAvailability}
+                  scoringProfile={asset.scoringProfile}
+                  factorReadiness={asset.factorReadiness}
+                  applicableFactors={asset.applicableFactors}
+                />
                 <button
                   type="button"
                   onClick={() => setSelectedAsset(asset)}

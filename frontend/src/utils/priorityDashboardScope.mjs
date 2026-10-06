@@ -56,7 +56,7 @@ export function parsePriorityResponse(response) {
 
 export function isScoredPriority(item) {
   return typeof item?.priorityScore === 'number' && Number.isFinite(item.priorityScore) &&
-    item.priorityLevel !== 'Unavailable';
+    item.priorityLevel !== 'Unavailable' && item.scoringStatus !== 'UNAVAILABLE';
 }
 
 export function getUnavailablePriorityItems(items) {
@@ -79,6 +79,10 @@ export function getPriorityAvailabilityDisplay(availability) {
   const coordinateProvenance = availability?.coordinateProvenance && typeof availability.coordinateProvenance === 'object'
     ? availability.coordinateProvenance
     : null;
+  const rawFactors = availability?.evidenceReadiness?.factors;
+  const factorReadiness = Array.isArray(rawFactors)
+    ? rawFactors.filter((factor) => factor && typeof factor.factor === 'string' && typeof factor.state === 'string')
+    : [];
 
   return {
     hasStructuredAvailability,
@@ -87,23 +91,56 @@ export function getPriorityAvailabilityDisplay(availability) {
       : 'Detailed scoring-readiness reasons are unavailable for this record.',
     missingScoringInputs,
     dataQualityWarnings,
-    coordinateProvenance
+    coordinateProvenance,
+    factorReadiness
   };
 }
 
 export function getPriorityDisplaySummary(items, stats) {
   const scoredCount = items.filter(isScoredPriority).length;
   const derivedUnscoredCount = Math.max(0, items.length - scoredCount);
+  const scoredProfileKeys = new Set(items.filter(isScoredPriority).map(priorityProfileKey));
+  const profilesComparable = scoredProfileKeys.size <= 1;
   return {
     total: stats.total,
     scored: scoredCount,
     unscored: stats.unscored ?? derivedUnscoredCount,
+    scoredProfileCount: scoredProfileKeys.size,
     critical: stats.critical,
     high: stats.high,
     medium: stats.medium,
     low: stats.low,
-    averageScore: scoredCount > 0 ? stats.averageScore : null
+    averageScore: scoredCount > 0 && profilesComparable ? stats.averageScore : null,
+    averageScoreUnavailableReason: scoredCount > 0 && !profilesComparable
+      ? 'Scores from different profiles are not directly comparable.'
+      : null
   };
+}
+
+function priorityProfileKey(item) {
+  const profile = item?.scoringProfile;
+  if (profile?.profileId && profile?.profileVersion) {
+    return `${profile.profileId}@${profile.profileVersion}|${profile.infrastructureType || item.type}`;
+  }
+  // An older response without profile metadata must not imply comparability.
+  return `PROFILE_NOT_REPORTED:${item?._id || item?.id || 'unknown'}`;
+}
+
+export function groupScoredPriorityItems(items, filters) {
+  const filtered = filterAndSortPriorityItems(items, filters);
+  const groups = new Map();
+  for (const item of filtered) {
+    const key = priorityProfileKey(item);
+    const group = groups.get(key) || {
+      key,
+      profile: item.scoringProfile || null,
+      infrastructureType: item.scoringProfile?.infrastructureType || item.type,
+      items: []
+    };
+    group.items.push(item);
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
 
 export function getPriorityEmptyState({ selectedPanchayat, panchayatCount, selectionError, items, stats, scoredCount, filteredCount }) {

@@ -21,7 +21,7 @@ export interface PriorityDataQualityWarning {
 
 export interface PriorityAvailability {
   eligible: boolean;
-  reasonCode: 'SOURCE_DATA_REVIEW_REQUIRED' | null;
+  reasonCode: 'SOURCE_DATA_REVIEW_REQUIRED' | 'EVIDENCE_REVIEW_REQUIRED' | 'SCORING_PROFILE_UNAVAILABLE' | null;
   reason: string | null;
   missingScoringInputs: PriorityScoringInputIssue[];
   dataQualityWarnings: PriorityDataQualityWarning[];
@@ -30,6 +30,75 @@ export interface PriorityAvailability {
     status: string | null;
     verified: boolean | null;
   };
+  evidenceReadiness?: PriorityEvidenceReadiness;
+}
+
+export type PriorityEvidenceFactorState =
+  | 'APPLICABLE_MISSING' | 'READY' | 'PENDING_VERIFICATION' | 'REJECTED'
+  | 'NOT_APPLICABLE' | 'UNRESOLVED';
+
+export interface PriorityEvidenceFactorReadiness {
+  factor: PriorityScoringInputCode;
+  state: PriorityEvidenceFactorState;
+  value: string | number | null;
+  unit: string | null;
+  reason: string;
+  provenance?: {
+    sourceName?: string;
+    sourceRecordReference?: string;
+    sourceUrl?: string | null;
+    observedAt?: string | null;
+    referencePeriod?: string | null;
+    derivationKind?: 'DIRECT' | 'CALCULATED' | null;
+    derivationMethod?: string | null;
+    confidence?: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+    verificationStatus?: string | null;
+  } | null;
+}
+
+export interface PriorityEvidenceReadiness {
+  readyForScoring: boolean;
+  status: string;
+  recordScope: string;
+  scopeResolved: boolean;
+  profileResolved: boolean;
+  policyProfileId: string | null;
+  policyProfileStatus: string | null;
+  factors: PriorityEvidenceFactorReadiness[];
+  missingFactors: PriorityScoringInputCode[];
+  pendingFactors: PriorityScoringInputCode[];
+  rejectedFactors: PriorityScoringInputCode[];
+  notApplicableFactors: PriorityScoringInputCode[];
+  unresolvedFactors: PriorityScoringInputCode[];
+  readyFactors: PriorityScoringInputCode[];
+}
+
+export interface PriorityScoringProfileSummary {
+  profileId: string;
+  profileVersion: string;
+  infrastructureType: string;
+  status: 'LEGACY' | 'APPROVED' | 'UNAVAILABLE';
+  applicableFactors: PriorityScoringInputCode[];
+  reason?: string;
+}
+
+export interface ProfileFactorDetail {
+  rawValue: string | number;
+  normalizedScore: number;
+  weight: number;
+  contribution: number;
+  description: string;
+}
+
+export interface TypeSpecificPriorityExplanation {
+  priorityScore: number;
+  priorityLevel: PriorityLevel;
+  summary: string;
+  profileId: string;
+  profileVersion: string;
+  applicableFactors: PriorityScoringInputCode[];
+  factors: Partial<Record<PriorityScoringInputCode, ProfileFactorDetail>>;
+  calculatedAt?: string;
 }
 
 export interface FactorDetail {
@@ -110,7 +179,11 @@ export interface RankedInfrastructure {
   missingDataFields?: string[];
   sourceData?: Record<string, unknown>;
   priorityExplanation?: PriorityExplanation;
-  explanation?: PriorityExplanation;
+  explanation?: PriorityExplanation | TypeSpecificPriorityExplanation | null;
+  scoringProfile?: PriorityScoringProfileSummary;
+  applicableFactors?: PriorityScoringInputCode[];
+  factorReadiness?: PriorityEvidenceFactorReadiness[];
+  profileRank?: number | null;
 }
 
 export interface PriorityStats {

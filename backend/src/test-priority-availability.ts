@@ -79,7 +79,8 @@ const listAvailability = getUnavailablePriorityFields(baseSourceRecord).priority
 const byIdAvailability = getUnavailablePriorityFields(baseSourceRecord).priorityAvailability;
 assert.deepEqual(listAvailability, byIdAvailability, 'list and get-by-id paths share the same availability helper');
 
-assert.equal(getPriorityAvailability({ dataOrigin: 'SOURCE_EXCEL', priorityScorable: true, ...completeInputs }).eligible, true);
+assert.equal(getPriorityAvailability({ dataOrigin: 'SOURCE_EXCEL', priorityScorable: true, ...completeInputs }).eligible, false,
+  'complete scalar fields and the source flag do not replace reviewed factor evidence');
 assert.equal(getPriorityAvailability({ dataOrigin: 'DEMO', priorityScorable: false, ...completeInputs }).eligible, true,
   'non-SOURCE_EXCEL eligibility remains as before');
 

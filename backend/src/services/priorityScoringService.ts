@@ -1,6 +1,23 @@
 import { PriorityConfig, PriorityWeights, PriorityThresholds, NormalizationLimits } from '../models/PriorityConfig.js';
 import { Infrastructure, Road } from '../models/Infrastructure.js';
 import type { InfrastructureDoc, RoadDoc } from '../models/Infrastructure.js';
+import { PriorityEvidence } from '../models/PriorityEvidence.js';
+import type { PriorityEvidenceDoc } from '../models/PriorityEvidence.js';
+import {
+  evaluatePriorityEvidenceReadiness,
+  evidenceValuesForScoring,
+  type PriorityEvidenceReadiness,
+  type PriorityEvidenceRecordInput
+} from './priorityEvidenceReadiness.js';
+import {
+  APPROVED_PRIORITY_SCORING_PROFILES,
+  calculatePriorityWithProfile,
+  rankWithinScoringProfiles,
+  resolvePriorityScoringProfile,
+  type PriorityScoringProfile,
+  type ProfileResolution,
+  type TypeSpecificPriorityExplanation
+} from './priorityScoringProfiles.js';
 
 export type PriorityLevel = 'Critical' | 'High' | 'Medium' | 'Low';
 export type RankedPriorityLevel = PriorityLevel | 'Unavailable';
@@ -31,16 +48,18 @@ export interface PriorityCoordinateProvenance {
 
 export interface PriorityAvailability {
   eligible: boolean;
-  reasonCode: 'SOURCE_DATA_REVIEW_REQUIRED' | null;
+  reasonCode: 'SOURCE_DATA_REVIEW_REQUIRED' | 'EVIDENCE_REVIEW_REQUIRED' | 'SCORING_PROFILE_UNAVAILABLE' | null;
   reason: string | null;
   missingScoringInputs: PriorityScoringInputIssue[];
   dataQualityWarnings: PriorityDataQualityWarning[];
   coordinateProvenance: PriorityCoordinateProvenance;
+  evidenceReadiness: PriorityEvidenceReadiness;
 }
 
 interface PriorityAvailabilityRecord {
   dataOrigin?: string;
   priorityScorable?: boolean;
+  priorityScore?: unknown;
   condition?: unknown;
   status?: string | null;
   complaintsCount?: unknown;
@@ -57,6 +76,46 @@ interface PriorityAvailabilityRecord {
   coordinateSource?: string | null;
   coordinateStatus?: string | null;
   coordinatesVerified?: boolean;
+  resolvedSubtype?: string;
+  scopeClass?: string;
+}
+
+export interface PriorityScoringProfileSummary {
+  profileId: string;
+  profileVersion: string;
+  infrastructureType: string;
+  status: 'LEGACY' | 'APPROVED' | 'UNAVAILABLE';
+  applicableFactors: string[];
+  reason?: string;
+}
+
+const LEGACY_SCORING_PROFILE: PriorityScoringProfileSummary = {
+  profileId: 'LEGACY_FIXED_SIX_FACTOR',
+  profileVersion: '1',
+  infrastructureType: 'LEGACY',
+  status: 'LEGACY',
+  applicableFactors: ['condition', 'complaintsCount', 'populationServed', 'trafficLevel', 'lastMaintenanceDate', 'alternativeDistanceKm']
+};
+
+function profileSummary(record: PriorityAvailabilityRecord, resolution: ProfileResolution, legacy: boolean): PriorityScoringProfileSummary {
+  if (legacy) return { ...LEGACY_SCORING_PROFILE, infrastructureType: record.type || 'LEGACY' };
+  if (resolution.profile) return {
+    profileId: resolution.profile.profileId,
+    profileVersion: resolution.profile.profileVersion,
+    infrastructureType: resolution.profile.infrastructureType,
+    status: 'APPROVED',
+    applicableFactors: [...resolution.profile.applicableFactors]
+  };
+  const reasons: Record<ProfileResolution['status'], string> = {
+    APPROVED: '',
+    NOT_FOUND: 'No active approved scoring profile exists for this infrastructure type/subtype.',
+    UNRESOLVED_SUBTYPE: 'Other infrastructure requires a reviewed individual-asset scope and resolved subtype.',
+    INVALID_PROFILE: 'The matching scoring profile failed validation and is unavailable.'
+  };
+  return {
+    profileId: '', profileVersion: '', infrastructureType: record.type || 'Unknown',
+    status: 'UNAVAILABLE', applicableFactors: [], reason: reasons[resolution.status]
+  };
 }
 
 const PRIORITY_INPUT_LABELS: Record<PriorityScoringInputCode, string> = {
@@ -84,13 +143,23 @@ function hasValidDate(value: unknown): boolean {
   return Number.isFinite(new Date(value).getTime());
 }
 
-/**
- * Describes the existing source-record eligibility gate without changing it.
- * Missing inputs and coordinate quality are explanatory metadata only; they do
- * not enable scoring or turn approximate coordinates into scoring inputs.
- */
-export function getPriorityAvailability(record: PriorityAvailabilityRecord): PriorityAvailability {
-  const eligible = record.dataOrigin !== 'SOURCE_EXCEL' || record.priorityScorable === true;
+function usesLegacyPriorityCompatibility(record: PriorityAvailabilityRecord): boolean {
+  if (record.dataOrigin === 'DEMO' || record.dataOrigin === 'LEGACY_DEMO') return true;
+  // Older Varthur-era documents may predate dataOrigin. Preserve their existing
+  // persisted score baseline, but do not let the schema's zero default qualify.
+  return record.dataOrigin == null && typeof record.priorityScore === 'number' &&
+    Number.isFinite(record.priorityScore) && record.priorityScore > 0;
+}
+
+/** Describes factor evidence, coordinate quality, and current score eligibility. */
+export function getPriorityAvailability(
+  record: PriorityAvailabilityRecord,
+  evidenceReadiness = evaluatePriorityEvidenceReadiness(record),
+  profile?: PriorityScoringProfile
+): PriorityAvailability {
+  const sourceFlagAllowsScoring = record.priorityScorable === true;
+  const legacyCompatibility = usesLegacyPriorityCompatibility(record);
+  const eligible = legacyCompatibility || (sourceFlagAllowsScoring && Boolean(profile) && evidenceReadiness.readyForScoring);
   const missingCodes: PriorityScoringInputCode[] = [];
   const condition = typeof record.condition === 'string' ? record.condition.trim().toLowerCase() : '';
   if (!['bad', 'poor', 'needs_maintenance', 'average', 'fair', 'under_repair', 'good', 'operational'].includes(condition)) {
@@ -120,24 +189,48 @@ export function getPriorityAvailability(record: PriorityAvailabilityRecord): Pri
     dataQualityWarnings.push({ code: 'UNVERIFIED_COORDINATES', message: 'Coordinates have not been confirmed as verified.' });
   }
 
+  const evidenceReadyCodes = new Set(evidenceReadiness.readyFactors);
+  const missingScoringInputs = missingCodes
+    .filter((code) => !profile || profile.applicableFactors.includes(code))
+    .filter((code) => !evidenceReadyCodes.has(code))
+    .map((code) => ({ code, label: PRIORITY_INPUT_LABELS[code] }));
+
   return {
     eligible,
-    reasonCode: eligible ? null : 'SOURCE_DATA_REVIEW_REQUIRED',
-    reason: eligible ? null : 'This source record is not marked eligible for priority scoring; review its inputs and provenance before enabling scoring.',
-    missingScoringInputs: missingCodes.map((code) => ({ code, label: PRIORITY_INPUT_LABELS[code] })),
+    reasonCode: eligible ? null : (record.dataOrigin === 'SOURCE_EXCEL' && !sourceFlagAllowsScoring
+      ? 'SOURCE_DATA_REVIEW_REQUIRED'
+      : sourceFlagAllowsScoring && !profile ? 'SCORING_PROFILE_UNAVAILABLE' : 'EVIDENCE_REVIEW_REQUIRED'),
+    reason: eligible ? null : (record.dataOrigin === 'SOURCE_EXCEL' && !sourceFlagAllowsScoring
+      ? 'This source record is not marked eligible for priority scoring; review its inputs and provenance before enabling scoring.'
+      : sourceFlagAllowsScoring && !profile
+        ? 'No active approved type-specific scoring profile is available for this record.'
+        : sourceFlagAllowsScoring
+        ? 'Accepted factor evidence, a resolved individual-asset scope, and an approved type profile are required before this record can be scored.'
+        : 'Reviewed factor evidence, an approved type profile, and explicit scoring eligibility are required before this record can be scored.'),
+    missingScoringInputs,
     dataQualityWarnings,
-    coordinateProvenance: { source: coordinateSource, status: coordinateStatus, verified: coordinatesVerified }
+    coordinateProvenance: { source: coordinateSource, status: coordinateStatus, verified: coordinatesVerified },
+    evidenceReadiness
   };
 }
 
 /** Shared unavailable fields for the list and per-infrastructure response paths. */
-export function getUnavailablePriorityFields(record: PriorityAvailabilityRecord) {
-  const priorityAvailability = getPriorityAvailability(record);
+export function getUnavailablePriorityFields(
+  record: PriorityAvailabilityRecord,
+  evidenceReadiness?: PriorityEvidenceReadiness,
+  resolution?: ProfileResolution
+) {
+  const legacy = usesLegacyPriorityCompatibility(record);
+  const profileResolution = resolution || resolvePriorityScoringProfile(record, APPROVED_PRIORITY_SCORING_PROFILES);
+  const priorityAvailability = getPriorityAvailability(record, evidenceReadiness, profileResolution.profile || undefined);
   return {
     priorityScore: null,
     priorityLevel: 'Unavailable' as const,
     scoringStatus: 'UNAVAILABLE' as const,
-    priorityAvailability
+    priorityAvailability,
+    scoringProfile: profileSummary(record, profileResolution, legacy),
+    applicableFactors: legacy ? [...LEGACY_SCORING_PROFILE.applicableFactors] : [...(profileResolution.profile?.applicableFactors || [])],
+    factorReadiness: priorityAvailability.evidenceReadiness.factors
   };
 }
 
@@ -190,7 +283,11 @@ export interface RankedItem {
   missingDataFields?: string[];
   coordinateStatus?: string;
   alternativeDistanceKm?: number | null;
-  explanation: PriorityExplanation | null;
+  explanation: PriorityExplanation | TypeSpecificPriorityExplanation | null;
+  scoringProfile: PriorityScoringProfileSummary;
+  applicableFactors: string[];
+  factorReadiness: PriorityEvidenceReadiness['factors'];
+  profileRank?: number | null;
   dataOrigin?: string;
   isSynthetic?: boolean;
   sourceCategory?: string;
@@ -223,6 +320,28 @@ export interface PriorityStats {
   averageScore: number;
 }
 
+export interface PriorityProfileStats {
+  profileId: string;
+  profileVersion: string;
+  infrastructureType: string;
+  total: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  unscored: number;
+  averageScore: number | null;
+}
+
+export interface PriorityRankingGroup {
+  profileId: string;
+  profileVersion: string;
+  infrastructureType: string;
+  status: 'LEGACY' | 'APPROVED' | 'UNAVAILABLE';
+  itemIds: string[];
+  rankingComparableWithinGroup: boolean;
+}
+
 export const DEFAULT_WEIGHTS: PriorityWeights = {
   condition: 0.30,
   complaints: 0.20,
@@ -246,7 +365,121 @@ export const DEFAULT_LIMITS: NormalizationLimits = {
   maxAlternativeDistanceKm: 5
 };
 
+function evidenceReviewFromDocuments(documents: PriorityEvidenceDoc[]): PriorityEvidenceRecordInput | null {
+  if (!documents.length) return null;
+  if (documents.length === 1) return documents[0] as unknown as PriorityEvidenceRecordInput;
+
+  // Duplicate review documents are a data-integrity conflict. Flattening their
+  // current factors makes duplicate factor evidence fail closed in the evaluator.
+  return {
+    scopeClass: 'UNRESOLVED',
+    scopeVerificationStatus: 'PENDING',
+    factors: documents.flatMap((document) => document.factors || []) as unknown as PriorityEvidenceRecordInput['factors']
+  };
+}
+
+async function getEvidenceByInfrastructureIds(ids: unknown[]): Promise<Map<string, PriorityEvidenceDoc[]>> {
+  if (!ids.length) return new Map();
+  const documents = await PriorityEvidence.find({ infrastructureId: { $in: ids } }).lean() as unknown as PriorityEvidenceDoc[];
+  const grouped = new Map<string, PriorityEvidenceDoc[]>();
+  for (const document of documents) {
+    const key = String(document.infrastructureId);
+    const records = grouped.get(key) || [];
+    records.push(document);
+    grouped.set(key, records);
+  }
+  return grouped;
+}
+
+function readinessForAsset(
+  asset: PriorityAvailabilityRecord,
+  evidenceDocuments: PriorityEvidenceDoc[] = [],
+  profile?: PriorityScoringProfile
+): PriorityEvidenceReadiness {
+  return evaluatePriorityEvidenceReadiness(asset, evidenceReviewFromDocuments(evidenceDocuments), profile);
+}
+
+function profileResolutionForAsset(asset: PriorityAvailabilityRecord, review: PriorityEvidenceRecordInput | null): ProfileResolution {
+  return resolvePriorityScoringProfile({
+    type: asset.type,
+    resolvedSubtype: review?.resolvedSubtype,
+    scopeClass: review?.scopeClass
+  }, APPROVED_PRIORITY_SCORING_PROFILES);
+}
+
+function applyEvidenceValues<T extends Record<string, any>>(
+  asset: T,
+  readiness: PriorityEvidenceReadiness
+): T {
+  const values = evidenceValuesForScoring(readiness);
+  return {
+    ...asset,
+    ...values,
+    // The legacy scorer gives lastRepairDate precedence. Evidence is mapped to
+    // the approved maintenance-age input, so prevent an older/raw repair field
+    // from shadowing the accepted evidence value.
+    ...(values.lastMaintenanceDate ? { lastRepairDate: undefined } : {})
+  };
+}
+
 export class PriorityScoringService {
+  public static usesLegacyPriorityCompatibility(record: PriorityAvailabilityRecord): boolean {
+    return usesLegacyPriorityCompatibility(record);
+  }
+
+  public static async getEvidenceReadiness(asset: InfrastructureDoc): Promise<PriorityEvidenceReadiness> {
+    const documents = await PriorityEvidence.find({ infrastructureId: asset._id }).lean() as unknown as PriorityEvidenceDoc[];
+    const review = evidenceReviewFromDocuments(documents);
+    const resolution = profileResolutionForAsset(asset, review);
+    return readinessForAsset(asset, documents, resolution.profile || undefined);
+  }
+
+  /** Read-only evaluation used by the individual priority endpoint. */
+  public static async getAssetPriorityResult(asset: InfrastructureDoc): Promise<{
+    scoringStatus: 'SCORED' | 'UNAVAILABLE';
+    priorityScore: number | null;
+    priorityLevel: RankedPriorityLevel;
+    explanation: PriorityExplanation | TypeSpecificPriorityExplanation | null;
+    scoringProfile: PriorityScoringProfileSummary;
+    applicableFactors: string[];
+    factorReadiness: PriorityEvidenceReadiness['factors'];
+    priorityAvailability: PriorityAvailability;
+  }> {
+    const documents = await PriorityEvidence.find({ infrastructureId: asset._id }).lean() as unknown as PriorityEvidenceDoc[];
+    const review = evidenceReviewFromDocuments(documents);
+    const resolution = profileResolutionForAsset(asset, review);
+    const profile = resolution.profile || undefined;
+    const legacy = usesLegacyPriorityCompatibility(asset);
+    const readiness = readinessForAsset(asset, documents, profile);
+    const availability = getPriorityAvailability(asset, readiness, profile);
+    const scoringProfile = profileSummary(asset, resolution, legacy);
+    const applicableFactors = legacy ? [...LEGACY_SCORING_PROFILE.applicableFactors] : [...(profile?.applicableFactors || [])];
+    if (!availability.eligible) return {
+      scoringStatus: 'UNAVAILABLE', priorityScore: null, priorityLevel: 'Unavailable', explanation: null,
+      scoringProfile, applicableFactors, factorReadiness: readiness.factors, priorityAvailability: availability
+    };
+
+    const explanation = legacy
+      ? this.calculate(asset, await this.getActiveConfig(String(asset.panchayatId)))
+      : profile
+        ? calculatePriorityWithProfile(profile, readiness, new Date())
+        : null;
+    if (!explanation) return {
+      scoringStatus: 'UNAVAILABLE', priorityScore: null, priorityLevel: 'Unavailable', explanation: null,
+      scoringProfile: { ...scoringProfile, status: 'UNAVAILABLE', reason: 'The resolved profile could not calculate a complete score.' },
+      applicableFactors, factorReadiness: readiness.factors,
+      priorityAvailability: { ...availability, eligible: false, reasonCode: 'EVIDENCE_REVIEW_REQUIRED', reason: 'Accepted evidence does not produce every profile-required normalized factor.' }
+    };
+    return {
+      scoringStatus: 'SCORED', priorityScore: explanation.priorityScore, priorityLevel: explanation.priorityLevel,
+      explanation, scoringProfile, applicableFactors, factorReadiness: readiness.factors, priorityAvailability: availability
+    };
+  }
+
+  public static applyAcceptedEvidence(asset: Record<string, any>, readiness: PriorityEvidenceReadiness): Record<string, any> {
+    return applyEvidenceValues(asset, readiness);
+  }
+
   /**
    * Fetch active config or return defaults
    */
@@ -501,14 +734,19 @@ export class PriorityScoringService {
     const items = await Infrastructure.find(query);
     const configs = panchayatId ? null : await PriorityConfig.find({ panchayatId: { $exists: true } }).lean();
     const globalConfig = await this.getActiveConfig(panchayatId);
+    const evidenceById = await getEvidenceByInfrastructureIds(items.map((item) => item._id));
 
     let totalScore = 0;
     let updatedCount = 0;
     for (const item of items) {
-      if (item.dataOrigin === 'SOURCE_EXCEL' && item.priorityScorable !== true) continue;
+      const readiness = readinessForAsset(item, evidenceById.get(String(item._id)) || []);
+      if (!getPriorityAvailability(item, readiness).eligible) continue;
       const configDoc: any = configs?.find((entry: any) => String(entry.panchayatId) === String(item.panchayatId));
       const config = configDoc ? { weights: configDoc.weights, thresholds: configDoc.thresholds, limits: configDoc.limits } : globalConfig;
-      const result = this.calculate(item, config);
+      const scoreInput = usesLegacyPriorityCompatibility(item)
+        ? item
+        : applyEvidenceValues(item.toObject(), readiness);
+      const result = this.calculate(scoreInput, config);
       item.priorityScore = result.priorityScore;
       await item.save();
       totalScore += result.priorityScore;
@@ -528,7 +766,7 @@ export class PriorityScoringService {
     ward?: string;
     level?: PriorityLevel;
     limit?: number;
-  }): Promise<{ items: RankedItem[]; stats: PriorityStats }> {
+  }): Promise<{ items: RankedItem[]; stats: PriorityStats; statsByProfile: PriorityProfileStats[]; rankingGroups: PriorityRankingGroup[]; rankingComparable: boolean }> {
     const configs = options.panchayatId
       ? []
       : await PriorityConfig.find({ panchayatId: { $exists: true } }).lean();
@@ -540,14 +778,25 @@ export class PriorityScoringService {
     if (options.ward && options.ward !== 'All') query.ward = options.ward;
 
     const rawList = await Infrastructure.find(query).lean();
+    const evidenceById = await getEvidenceByInfrastructureIds(rawList.map((item: any) => item._id));
 
     // Map each item to full explanation
     const calculated: RankedItem[] = rawList.map((item: any) => {
       const configDoc: any = configs.find((entry: any) => String(entry.panchayatId) === String(item.panchayatId));
       const config = configDoc ? { weights: configDoc.weights, thresholds: configDoc.thresholds, limits: configDoc.limits } : defaultConfig;
-      const unavailableFields = getUnavailablePriorityFields(item);
+      const evidenceDocuments = evidenceById.get(String(item._id)) || [];
+      const review = evidenceReviewFromDocuments(evidenceDocuments);
+      const resolution = profileResolutionForAsset(item, review);
+      const profile = resolution.profile || undefined;
+      const evidenceReadiness = readinessForAsset(item, evidenceDocuments, profile);
+      const unavailableFields = getUnavailablePriorityFields(item, evidenceReadiness, resolution);
       const isUnscored = !unavailableFields.priorityAvailability.eligible;
-      const explanation = isUnscored ? null : this.calculate(item, config);
+      const legacy = usesLegacyPriorityCompatibility(item);
+      const scoreInput = legacy ? item : applyEvidenceValues(item, evidenceReadiness);
+      const explanation = isUnscored ? null : legacy
+        ? this.calculate(scoreInput, config)
+        : profile ? calculatePriorityWithProfile(profile, evidenceReadiness, new Date()) : null;
+      const safelyUnavailable = !explanation;
       return {
         id: String(item._id),
         _id: String(item._id),
@@ -565,9 +814,17 @@ export class PriorityScoringService {
         complaintsCount: item.complaintsCount ?? (isUnscored ? null : 0),
         populationServed: item.populationServed ?? (isUnscored ? null : 0),
         ...unavailableFields,
-        priorityScore: explanation?.priorityScore ?? unavailableFields.priorityScore,
-        priorityLevel: explanation?.priorityLevel ?? unavailableFields.priorityLevel,
-        scoringStatus: explanation ? 'SCORED' : unavailableFields.scoringStatus,
+        priorityScore: explanation?.priorityScore ?? null,
+        priorityLevel: explanation?.priorityLevel ?? 'Unavailable',
+        scoringStatus: explanation ? 'SCORED' : 'UNAVAILABLE',
+        ...(safelyUnavailable && !isUnscored ? {
+          priorityAvailability: {
+            ...unavailableFields.priorityAvailability,
+            eligible: false,
+            reasonCode: 'EVIDENCE_REVIEW_REQUIRED' as const,
+            reason: 'Accepted evidence does not produce every profile-required normalized factor.'
+          }
+        } : {}),
         estimatedMaintenanceCost: item.estimatedMaintenanceCost ?? item.estimatedRepairCost ?? (isUnscored ? null : 0),
         estimatedRepairCost: item.estimatedRepairCost ?? item.estimatedMaintenanceCost ?? (isUnscored ? null : 0),
         trafficLevel: item.trafficLevel,
@@ -596,28 +853,60 @@ export class PriorityScoringService {
       };
     });
 
-    // Sort descending by priorityScore
-    calculated.sort((a, b) => {
-      if (a.scoringStatus !== b.scoringStatus) return a.scoringStatus === 'SCORED' ? -1 : 1;
-      return (b.priorityScore ?? -1) - (a.priorityScore ?? -1);
+    // Scores are ordered only inside one profile/version. Different profile
+    // groups are ordered by identity, never by their numeric score.
+    const ranked = rankWithinScoringProfiles<RankedItem>(calculated);
+    const scoredProfileKey = (item: RankedItem) => `${item.scoringProfile.profileId}@${item.scoringProfile.profileVersion}|${item.scoringProfile.infrastructureType}`;
+    const scoredKeys = [...new Set(ranked.filter((item) => item.scoringStatus === 'SCORED').map(scoredProfileKey))];
+    const rankingComparable = scoredKeys.length <= 1;
+
+    const groups = new Map<string, RankedItem[]>();
+    for (const item of ranked) {
+      const key = `${item.scoringProfile.profileId}@${item.scoringProfile.profileVersion}|${item.scoringProfile.infrastructureType}|${item.scoringProfile.status}`;
+      const group = groups.get(key) || [];
+      group.push(item);
+      groups.set(key, group);
+    }
+    const rankingGroups: PriorityRankingGroup[] = [...groups.values()].map((group) => ({
+      profileId: group[0].scoringProfile.profileId,
+      profileVersion: group[0].scoringProfile.profileVersion,
+      infrastructureType: group[0].scoringProfile.infrastructureType,
+      status: group[0].scoringProfile.status,
+      itemIds: group.map((item) => item.id),
+      rankingComparableWithinGroup: group.filter((item) => item.scoringStatus === 'SCORED').length > 0
+    }));
+
+    const statsByProfile: PriorityProfileStats[] = [...groups.values()].map((group) => {
+      const scored = group.filter((item) => item.scoringStatus === 'SCORED');
+      return {
+        profileId: group[0].scoringProfile.profileId,
+        profileVersion: group[0].scoringProfile.profileVersion,
+        infrastructureType: group[0].scoringProfile.infrastructureType,
+        total: group.length,
+        unscored: group.length - scored.length,
+        critical: scored.filter((item) => item.priorityLevel === 'Critical').length,
+        high: scored.filter((item) => item.priorityLevel === 'High').length,
+        medium: scored.filter((item) => item.priorityLevel === 'Medium').length,
+        low: scored.filter((item) => item.priorityLevel === 'Low').length,
+        averageScore: scored.length ? Number((scored.reduce((sum, item) => sum + (item.priorityScore || 0), 0) / scored.length).toFixed(2)) : null
+      };
     });
 
     // Compute KPI stats across the un-sliced set
     const stats: PriorityStats = {
-      total: calculated.length,
-      unscored: calculated.filter((i) => i.scoringStatus === 'UNAVAILABLE').length,
-      critical: calculated.filter((i) => i.priorityLevel === 'Critical').length,
-      high: calculated.filter((i) => i.priorityLevel === 'High').length,
-      medium: calculated.filter((i) => i.priorityLevel === 'Medium').length,
-      low: calculated.filter((i) => i.priorityLevel === 'Low').length,
-      averageScore:
-        calculated.some((item) => item.scoringStatus === 'SCORED')
-          ? Number((calculated.reduce((acc, cur) => acc + (cur.priorityScore ?? 0), 0) / calculated.filter((item) => item.scoringStatus === 'SCORED').length).toFixed(2))
-          : 0
+      total: ranked.length,
+      unscored: ranked.filter((i) => i.scoringStatus === 'UNAVAILABLE').length,
+      critical: ranked.filter((i) => i.priorityLevel === 'Critical').length,
+      high: ranked.filter((i) => i.priorityLevel === 'High').length,
+      medium: ranked.filter((i) => i.priorityLevel === 'Medium').length,
+      low: ranked.filter((i) => i.priorityLevel === 'Low').length,
+      averageScore: ranked.some((item) => item.scoringStatus === 'SCORED')
+        ? Number((ranked.reduce((acc, cur) => acc + (cur.priorityScore ?? 0), 0) / ranked.filter((item) => item.scoringStatus === 'SCORED').length).toFixed(2))
+        : 0
     };
 
     // Filter by level if specified
-    let filtered = calculated;
+    let filtered = ranked;
     if (options.level) {
       filtered = filtered.filter((i) => i.priorityLevel === options.level);
     }
@@ -627,6 +916,6 @@ export class PriorityScoringService {
       filtered = filtered.slice(0, options.limit);
     }
 
-    return { items: filtered, stats };
+    return { items: filtered, stats, statsByProfile, rankingGroups, rankingComparable };
   }
 }

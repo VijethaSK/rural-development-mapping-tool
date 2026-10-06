@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getUnavailablePriorityFields, PriorityScoringService, PriorityLevel } from '../services/priorityScoringService.js';
+import { PriorityScoringService, PriorityLevel } from '../services/priorityScoringService.js';
 import { PriorityConfig } from '../models/PriorityConfig.js';
 import { Infrastructure } from '../models/Infrastructure.js';
 import { assertPanchayatAccess, panchayatFilter, resolvePanchayatScope } from '../middleware/panchayatScope.js';
@@ -52,31 +52,43 @@ export async function getById(req: Request, res: Response): Promise<void> {
     }
     assertPanchayatAccess(req, asset.panchayatId);
 
-    const unavailableFields = getUnavailablePriorityFields(asset);
-    if (!unavailableFields.priorityAvailability.eligible) {
+    const result = await PriorityScoringService.getAssetPriorityResult(asset);
+    if (result.scoringStatus === 'UNAVAILABLE') {
       res.json({
         infrastructureId: asset._id,
         name: asset.name,
         type: asset.type,
         sourceCategory: asset.sourceCategory,
         sourceType: asset.sourceType,
-        ...unavailableFields,
-        reasonCode: unavailableFields.priorityAvailability.reasonCode,
-        reason: unavailableFields.priorityAvailability.reason,
+        priorityScore: null,
+        priorityLevel: 'Unavailable',
+        scoringStatus: result.scoringStatus,
+        explanation: null,
+        scoringProfile: result.scoringProfile,
+        applicableFactors: result.applicableFactors,
+        factorReadiness: result.factorReadiness,
+        priorityAvailability: result.priorityAvailability,
+        reasonCode: result.priorityAvailability.reasonCode,
+        reason: result.priorityAvailability.reason,
         missingDataFields: asset.missingDataFields || []
       });
       return;
     }
-
-    const config = await PriorityScoringService.getActiveConfig(asset.panchayatId.toString());
-    const explanation = PriorityScoringService.calculate(asset, config);
 
     res.json({
       infrastructureId: asset._id,
       name: asset.name,
       type: asset.type,
       ward: asset.ward,
-      ...explanation
+      ...(result.explanation || {}),
+      scoringStatus: result.scoringStatus,
+      priorityScore: result.priorityScore,
+      priorityLevel: result.priorityLevel,
+      explanation: result.explanation,
+      scoringProfile: result.scoringProfile,
+      applicableFactors: result.applicableFactors,
+      factorReadiness: result.factorReadiness,
+      priorityAvailability: result.priorityAvailability
     });
   } catch (err: any) {
     res.status(err.statusCode || 500).json({ error: err.message || 'Failed to evaluate asset priority' });

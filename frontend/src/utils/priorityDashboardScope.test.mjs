@@ -5,6 +5,7 @@ import {
   buildPriorityRequestPath,
   createPriorityRequestGate,
   filterAndSortPriorityItems,
+  groupScoredPriorityItems,
   getPriorityAvailabilityDisplay,
   getPriorityDisplaySummary,
   getPriorityEmptyState,
@@ -43,16 +44,39 @@ assert.throws(() => parsePriorityResponse({ items: [scoredHigh], stats: { total:
 
 const summary = getPriorityDisplaySummary(response.items, response.stats);
 assert.deepEqual(summary, {
-  total: 3, scored: 2, unscored: 1, critical: 0, high: 1, medium: 1, low: 0, averageScore: 42
+  total: 3, scored: 2, unscored: 1, critical: 0, high: 1, medium: 1, low: 0,
+  scoredProfileCount: 2,
+  averageScore: null,
+  averageScoreUnavailableReason: 'Scores from different profiles are not directly comparable.'
 });
 assert.equal(summary.total, summary.scored + summary.unscored, 'total is not confused with scored count');
-assert.equal(summary.averageScore, 42, 'average is taken from backend stats for scored records only');
+const oneProfile = { profileId: 'SCHOOL_PRIORITY_V1', profileVersion: '1.0.0', infrastructureType: 'School', status: 'APPROVED' };
+const oneProfileSummary = getPriorityDisplaySummary([
+  { ...scoredHigh, scoringProfile: oneProfile }, { ...scoredZero, scoringProfile: oneProfile }
+], { ...stats, total: 2, averageScore: 42 });
+assert.equal(oneProfileSummary.averageScore, 42, 'average is taken from backend stats when all scored records share one profile');
+assert.equal(oneProfileSummary.averageScoreUnavailableReason, null);
+assert.equal(oneProfileSummary.scoredProfileCount, 1);
 const noScoredSummary = getPriorityDisplaySummary([unscored], { total: 1, critical: 0, high: 0, medium: 0, low: 0, unscored: 1, averageScore: 0 });
 assert.equal(noScoredSummary.averageScore, null, 'backend sentinel zero is not presented as an average when no assets are scored');
+
+const profileItems = [
+  { ...scoredHigh, _id: 'school-high', type: 'School', priorityScore: 88, scoringProfile: { profileId: 'SCHOOL_PRIORITY_V1', profileVersion: '1.0.0', infrastructureType: 'School', status: 'APPROVED' } },
+  { ...scoredZero, _id: 'legacy-low', type: 'Road', priorityScore: 31, scoringProfile: { profileId: 'LEGACY_FIXED_SIX_FACTOR', profileVersion: '1', infrastructureType: 'Road', status: 'LEGACY' } }
+];
+const profileGroups = groupScoredPriorityItems(profileItems, { typeFilter: 'All', priorityFilter: 'All', searchTerm: '', sortBy: 'score' });
+assert.equal(profileGroups.length, 2, 'scores produced under different profiles are separated into distinct groups');
+assert.deepEqual(profileGroups.flatMap((group) => group.items.map((item) => item._id)).sort(), ['legacy-low', 'school-high']);
+const incomparableSummary = getPriorityDisplaySummary(profileItems, { ...stats, total: 2, averageScore: 59.5 });
+assert.equal(incomparableSummary.averageScore, null, 'aggregate averages across different scoring profiles are not displayed');
+assert.match(incomparableSummary.averageScoreUnavailableReason, /different profiles/);
 
 assert.deepEqual(filterAndSortPriorityItems(response.items, {
   typeFilter: 'All', priorityFilter: 'All', searchTerm: '', sortBy: 'score'
 }).map((item) => item._id), ['high', 'zero'], 'unscored assets are excluded from the ranked list');
+assert.deepEqual(getUnavailablePriorityItems([
+  { ...scoredHigh, _id: 'contradictory', scoringStatus: 'UNAVAILABLE' }
+]).map((item) => item._id), ['contradictory'], 'explicit backend unavailable status takes precedence over a contradictory numeric value');
 assert.deepEqual(filterAndSortPriorityItems(response.items, {
   typeFilter: 'Road', priorityFilter: 'All', searchTerm: '', sortBy: 'score'
 }).map((item) => item._id), ['high'], 'type filter remains functional');
@@ -95,6 +119,13 @@ assert.match(readinessDisplay.reason, /Review this source record/);
 assert.equal(getPriorityAvailabilityDisplay(undefined).hasStructuredAvailability, false);
 assert.equal(getPriorityAvailabilityDisplay(undefined).missingScoringInputs.length, 0,
   'older API responses safely show no structured details without making up missing-field reasons');
+const evidenceAvailability = getPriorityAvailabilityDisplay({ ...readiness, evidenceReadiness: { factors: [
+  { factor: 'condition', state: 'APPLICABLE_MISSING', value: null, unit: null, reason: 'No accepted evidence.' },
+  { factor: 'populationServed', state: 'PENDING_VERIFICATION', value: null, unit: null, reason: 'Awaiting review.' }
+] } });
+assert.deepEqual(evidenceAvailability.factorReadiness.map(({ factor, state }) => [factor, state]), [
+  ['condition', 'APPLICABLE_MISSING'], ['populationServed', 'PENDING_VERIFICATION']
+], 'backend factor readiness states are preserved for the details UI');
 
 assert.equal(getPriorityEmptyState({ selectedPanchayat: false, panchayatCount: 0, selectionError: null, items: [], stats: null, scoredCount: 0, filteredCount: 0 }), 'no-panchayats');
 assert.equal(getPriorityEmptyState({ selectedPanchayat: false, panchayatCount: 2, selectionError: null, items: [], stats: null, scoredCount: 0, filteredCount: 0 }), 'select-panchayat');
@@ -138,14 +169,21 @@ assert.match(page, /applyPriorityResultIfCurrent\(requestGateRef\.current, reque
 assert.match(page, /resolveInitialPriorityPanchayat/);
 assert.match(page, /updatePrioritySearchParams/);
 assert.match(page, /setAssets\(\[\]\);\s*setStats\(null\)/);
-assert.match(page, /filterAndSortPriorityItems\(assets/);
+assert.match(page, /groupScoredPriorityItems\(assets/);
+assert.match(page, /rankedGroups\.flatMap/);
 assert.match(page, /Not Yet Scoreable/);
-assert.match(page, /<PriorityAvailabilityDetails availability=\{asset\.priorityAvailability\}/);
+assert.match(page, /scoringProfile=\{asset\.scoringProfile\}/);
 assert.match(availabilityComponent, /Missing data preventing priority scoring/);
+assert.match(availabilityComponent, /Pending review/);
+assert.match(availabilityComponent, /scoringProfile\.profileId/);
+assert.match(availabilityComponent, /evidenceReadiness\.status/);
 assert.match(availabilityComponent, /Coordinate \/ data-quality warnings/);
 assert.match(availabilityComponent, /A detailed scoring-input assessment is unavailable/);
-assert.match(explanationModal, /<PriorityAvailabilityDetails availability=\{asset\.priorityAvailability\}/,
+assert.match(explanationModal, /<PriorityAvailabilityDetails/,
   'the explanation modal reuses the same structured availability details');
+assert.match(explanationModal, /profileExplanation\.applicableFactors/);
+assert.match(explanationModal, /Population Served/);
+assert.match(explanationModal, /Maintenance Age/);
 assert.match(page, /panchayatId=\{selectedPanchayatId\}/, 'weight configuration receives the current Panchayat scope');
 assert.match(configModal, /apiAuth<PriorityConfig[^\n]*>\(url, token\)/);
 assert.match(configModal, /parsePriorityConfigResponse\(data\)/, 'configuration is validated before successful-load state is set');
