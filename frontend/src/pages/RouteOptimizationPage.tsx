@@ -77,6 +77,7 @@ export default function RouteOptimizationPage() {
 
   // Available candidate infrastructure
   const [candidates, setCandidates] = useState<StopCandidate[]>([]);
+  const [syntheticDemoCandidates, setSyntheticDemoCandidates] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Configuration
@@ -122,8 +123,8 @@ export default function RouteOptimizationPage() {
     setStartCoord(null);
     setResult(null);
     const request = token
-      ? apiAuth<{ data: any[]; startLocation?: Coordinate | null; panchayatName?: string }>(requestPath, token)
-      : api<{ data: any[]; startLocation?: Coordinate | null; panchayatName?: string }>(requestPath);
+      ? apiAuth<{ data: any[]; startLocation?: Coordinate | null; panchayatName?: string; syntheticDemo?: boolean }>(requestPath, token)
+      : api<{ data: any[]; startLocation?: Coordinate | null; panchayatName?: string; syntheticDemo?: boolean }>(requestPath);
     request
       .then((res) => {
         if (!active || !shouldApplyCandidateResponse(selectedPanchayatId, selectedPanchayatIdRef.current)) return;
@@ -138,10 +139,12 @@ export default function RouteOptimizationPage() {
             condition: item.condition,
             complaintsCount: item.complaintsCount,
             populationServed: item.populationServed,
-            priorityScore: item.priorityScore ?? 50,
-            priorityLevel: item.priorityLevel ?? 'Medium',
+            priorityScore: item.syntheticDemo ? 0 : item.priorityScore ?? 50,
+            priorityLevel: item.syntheticDemo ? 'Unavailable' : item.priorityLevel ?? 'Medium',
             location: item.location,
+            syntheticDemo: item.syntheticDemo === true,
           }));
+        setSyntheticDemoCandidates(res.syntheticDemo === true && list.length > 0);
         setCandidates(list);
         setSelectedIds(new Set());
 
@@ -153,6 +156,7 @@ export default function RouteOptimizationPage() {
         if (!active || !shouldApplyCandidateResponse(selectedPanchayatId, selectedPanchayatIdRef.current)) return;
         console.error('Failed to load candidate infrastructure:', err);
         setCandidates([]);
+        setSyntheticDemoCandidates(false);
         setError('Could not load candidates for this Panchayat. Check that it is available to your account.');
       })
       .finally(() => {
@@ -167,6 +171,7 @@ export default function RouteOptimizationPage() {
     setSelectedPanchayatId(panchayatId);
     const reset = resetRouteSelection();
     setCandidates(reset.candidates);
+    setSyntheticDemoCandidates(false);
     setSelectedIds(reset.selectedIds);
     setStartCoord(reset.startCoord);
     setStartName(panchayatId ? 'Loading selected Panchayat depot…' : reset.startName);
@@ -241,7 +246,7 @@ export default function RouteOptimizationPage() {
           priorityLevel: s.priorityLevel,
         })),
         options: {
-          priorityWeight,
+          priorityWeight: syntheticDemoCandidates ? 0 : priorityWeight,
           averageSpeedKmph: speedKmph,
           apply2Opt: true,
         },
@@ -265,6 +270,10 @@ export default function RouteOptimizationPage() {
   // 3. Save Route to Database
   const handleSaveRoute = async () => {
     if (!result) return;
+    if (syntheticDemoCandidates) {
+      setError('Synthetic demonstration routes are preview-only and cannot be saved or assigned.');
+      return;
+    }
     const selectedStops = candidates.filter((c) => selectedIds.has(c.infrastructureId));
     const panchayatId = selectedPanchayatId;
     if (!token || !panchayatId || !['admin', 'pdo'].includes(user?.role || '')) {
@@ -346,7 +355,7 @@ export default function RouteOptimizationPage() {
           {result && (
             <button
               onClick={handleSaveRoute}
-              disabled={saving || saveSuccess}
+              disabled={saving || saveSuccess || syntheticDemoCandidates}
               className={`px-4 py-2 text-sm font-semibold rounded-lg text-white transition shadow-sm flex items-center gap-2 ${
                 saveSuccess
                   ? 'bg-emerald-600'
@@ -356,7 +365,7 @@ export default function RouteOptimizationPage() {
               }`}
             >
               <span>{saveSuccess ? '✓ Assigned' : '💾'}</span>
-              <span>{saveSuccess ? 'Route Saved & Assigned' : 'Save & Assign Route'}</span>
+              <span>{syntheticDemoCandidates ? 'Preview Only — Saving Disabled' : saveSuccess ? 'Route Saved & Assigned' : 'Save & Assign Route'}</span>
             </button>
           )}
 
@@ -395,6 +404,11 @@ export default function RouteOptimizationPage() {
           )}
         </select>
         {selectedPanchayat && <div className="mt-2 text-xs text-slate-500">Candidates and depot are scoped to {selectedPanchayat.name}.</div>}
+        {syntheticDemoCandidates && (
+          <div role="note" className="mt-3 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
+            <strong>Synthetic route preview.</strong> Stops and road lines are generated for local testing. No priority scores are available; route ordering ignores priority weight. This preview cannot be saved or assigned.
+          </div>
+        )}
       </div>
 
       {error && (
@@ -442,15 +456,17 @@ export default function RouteOptimizationPage() {
                   Priority Urgency Weight
                 </span>
                 <span className="font-bold font-mono text-blue-600 dark:text-blue-400">
-                  {priorityWeight.toFixed(1)}x
+                  {syntheticDemoCandidates ? '0.0x (ignored)' : `${priorityWeight.toFixed(1)}x`}
                 </span>
               </div>
+              {syntheticDemoCandidates && <p className="mt-1 text-[10px] text-indigo-700 dark:text-indigo-300">Demo stops have no priority score; route ordering uses distance only.</p>}
               <input
                 type="range"
                 min="0"
                 max="3"
                 step="0.1"
-                value={priorityWeight}
+                value={syntheticDemoCandidates ? 0 : priorityWeight}
+                disabled={syntheticDemoCandidates}
                 onChange={(e) => setPriorityWeight(parseFloat(e.target.value))}
                 className="w-full mt-1.5 accent-blue-600"
               />
@@ -474,7 +490,7 @@ export default function RouteOptimizationPage() {
                 </span>
               </div>
 
-              <div className="flex gap-1 text-xs">
+              {!syntheticDemoCandidates && <div className="flex gap-1 text-xs">
                 <button
                   type="button"
                   onClick={() => selectTopPriority(3)}
@@ -489,7 +505,7 @@ export default function RouteOptimizationPage() {
                 >
                   Top 5
                 </button>
-              </div>
+              </div>}
             </div>
 
             {!selectedPanchayatId ? (
@@ -523,18 +539,14 @@ export default function RouteOptimizationPage() {
                           <span className="font-semibold text-slate-900 dark:text-white truncate">
                             {cand.name}
                           </span>
-                          <span
-                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${getPriorityBadgeClass(
-                              cand.priorityLevel
-                            )}`}
-                          >
-                            {cand.priorityLevel}
+                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${cand.syntheticDemo ? 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-200 dark:border-indigo-800' : getPriorityBadgeClass(cand.priorityLevel)}`}>
+                            {cand.syntheticDemo ? 'Unscored demo stop' : cand.priorityLevel}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
                           <span>{cand.type}</span>
                           <span>•</span>
-                          <span>Score: {cand.priorityScore.toFixed(0)}</span>
+                          {!cand.syntheticDemo && <span>Score: {cand.priorityScore.toFixed(0)}</span>}
                           {cand.complaintsCount != null && cand.complaintsCount > 0 && (
                             <>
                               <span>•</span>
@@ -656,16 +668,14 @@ export default function RouteOptimizationPage() {
                       <div className="flex items-center justify-between">
                         <span className="font-extrabold text-slate-900">Stop #{stop.sequence}</span>
                         <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getPriorityBadgeClass(
-                            stop.priorityLevel
-                          )}`}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${syntheticDemoCandidates ? 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-200 dark:border-indigo-800' : getPriorityBadgeClass(stop.priorityLevel)}`}
                         >
-                          {stop.priorityLevel}
+                          {syntheticDemoCandidates ? 'Unscored demo stop' : stop.priorityLevel}
                         </span>
                       </div>
                       <div className="font-semibold text-slate-800 mt-1">{stop.infrastructureName}</div>
                       <div className="mt-1 text-slate-500 space-y-0.5">
-                        <div>Priority Score: <strong>{stop.priorityScore.toFixed(0)}</strong></div>
+                        {!syntheticDemoCandidates && <div>Priority Score: <strong>{stop.priorityScore.toFixed(0)}</strong></div>}
                         <div>Leg Distance: <strong>+{stop.distanceFromPreviousKm} km</strong></div>
                         <div>Leg method: <strong>{stop.routingMethod}</strong></div>
                         {stop.estimatedArrivalTime && <div>Estimated Arrival: <strong>{stop.estimatedArrivalTime}</strong></div>}
@@ -717,7 +727,7 @@ export default function RouteOptimizationPage() {
                     <tr>
                       <th className="py-2.5 px-3 w-12 text-center">Stop</th>
                       <th className="py-2.5 px-3">Infrastructure Target</th>
-                      <th className="py-2.5 px-3 text-center">Urgency</th>
+                      <th className="py-2.5 px-3 text-center">{syntheticDemoCandidates ? 'Data status' : 'Urgency'}</th>
                       <th className="py-2.5 px-3 text-right">Leg Dist.</th>
                       <th className="py-2.5 px-3 text-right">Total Dist.</th>
                       <th className="py-2.5 px-3 text-center">Est. Arrival</th>
@@ -739,12 +749,8 @@ export default function RouteOptimizationPage() {
                           <div className="text-[11px] text-slate-500">{stop.type || 'Asset'}</div>
                         </td>
                         <td className="py-2.5 px-3 text-center">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getPriorityBadgeClass(
-                              stop.priorityLevel
-                            )}`}
-                          >
-                            {stop.priorityLevel} ({stop.priorityScore.toFixed(0)})
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${syntheticDemoCandidates ? 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-200 dark:border-indigo-800' : getPriorityBadgeClass(stop.priorityLevel)}`}>
+                            {syntheticDemoCandidates ? 'Unscored demo stop' : `${stop.priorityLevel} (${stop.priorityScore.toFixed(0)})`}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-400">

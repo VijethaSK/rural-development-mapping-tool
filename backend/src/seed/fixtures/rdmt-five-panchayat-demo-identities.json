@@ -1,0 +1,1964 @@
+{
+  "sourceWorkbook": "Adyar_5_Panchayats_MAX_Infrastructure_Inventory.xlsx",
+  "sourceWorksheet": "ALL_Infrastructure",
+  "panchayatInfoWorksheet": "Panchayat_Info",
+  "infrastructures": [
+    {
+      "sourceRow": 2,
+      "sourceKey": "excel-v1-191c7fb3baef8c977a6b3d6a38514b2ebcb0253f4e8c7a76abd07a4619d2ca4d",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Adyar Grama Panchayat Office",
+        "Category": "Administration",
+        "Type": "Gram Panchayat Office",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business/local listing",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Exact coordinates available from map listing; verify boundary during GIS import."
+      }
+    },
+    {
+      "sourceRow": 3,
+      "sourceKey": "excel-v1-2fccda961575494dfd92e7d1509f15f32b87813538bd2b82fc24e28df53a606f",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Prathamika Arogya Kendra - PHC Adyar",
+        "Category": "Healthcare",
+        "Type": "Primary Health Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business/local listing + VillageInfo",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Named PHC; map listing places it on Adyar Garden Road."
+      }
+    },
+    {
+      "sourceRow": 4,
+      "sourceKey": "excel-v1-bfd18bb3eae1cdaf3c85e9d2ee0861d9874ea0d85cdcf8802f57327c047616ba",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Health Sub-Centre",
+        "Category": "Healthcare",
+        "Type": "Health Sub-Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "VillageInfo reports HSC within Adyar."
+      }
+    },
+    {
+      "sourceRow": 5,
+      "sourceKey": "excel-v1-74fc33f0e18902502ee9a22be256637e6378e3ffce5e10cfd9d5e73eb8cc7d66",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Navodaya Anganavadi Kendra, Baidiyavu",
+        "Category": "Childcare",
+        "Type": "Anganwadi Centre",
+        "Ownership": "Government/Community",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business/local listing",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Named Anganwadi."
+      }
+    },
+    {
+      "sourceRow": 6,
+      "sourceKey": "excel-v1-cbcf61261b637c814d3914cb9e20f5f4bbd64056e80ab07db9d404ef6c497b42",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Arkula",
+        "Infrastructure / Facility": "Government health facilities",
+        "Category": "Healthcare",
+        "Type": "PHC + Health Sub-Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Arkula page reports both PHC and HSC within village; exact names need official health list."
+      }
+    },
+    {
+      "sourceRow": 7,
+      "sourceKey": "excel-v1-bf81fc715097280b2515daf15215f9bc89e7424828d70a22a8aa56537f20c527",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Arkula",
+        "Infrastructure / Facility": "Government education facilities",
+        "Category": "Education",
+        "Type": "Government school(s)",
+        "Ownership": "Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Manipal outreach record + local sources",
+        "Source Vintage": "2018/current verification needed",
+        "Verification / Notes": "A 2018 outreach record states government school names were collected for Adyar/Arkula; obtain current UDISE list for exact names."
+      }
+    },
+    {
+      "sourceRow": 8,
+      "sourceKey": "excel-v1-cb229b926760053a4602222b029f2912693bde1f4d48be0bf839d67a8f5afdd0",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Arkula",
+        "Infrastructure / Facility": "Anganwadi centre(s)",
+        "Category": "Childcare",
+        "Type": "Anganwadi",
+        "Ownership": "Government/Community",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Local/GP records required",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "Do not treat an unverified count as exact."
+      }
+    },
+    {
+      "sourceRow": 9,
+      "sourceKey": "excel-v1-65664549d00f27ac2f63e48667a0eec333ad0f5fd51b3708ec16315ff4ab5452",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar & Arkula",
+        "Infrastructure / Facility": "Public drinking-water assets",
+        "Category": "Water",
+        "Type": "Tanks / reservoirs / pumps / public water points",
+        "Ownership": "Public/Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Operational / project-dependent",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP/JJM/KUIDFC records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Map each physical asset separately once GPS records are obtained."
+      }
+    },
+    {
+      "sourceRow": 10,
+      "sourceKey": "excel-v1-6c27cd2e035e8d9a1e7696086b9e95f8618e61858975cd411c348203d75205d1",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Adyar 125 MLD Water Treatment Plant",
+        "Category": "Water",
+        "Type": "Water Treatment Plant",
+        "Ownership": "Government/KUIDFC",
+        "Reported Quantity": 1,
+        "Status": "Under construction",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Recent project reporting",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Major water infrastructure; status must be updated when commissioned."
+      }
+    },
+    {
+      "sourceRow": 11,
+      "sourceKey": "excel-v1-144508d78efa6824004bf17be8e0b2027f604c6a6c4c1ccaa22d86da0cfe62f4",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar & Arkula",
+        "Infrastructure / Facility": "Public road network",
+        "Category": "Transport",
+        "Type": "Roads",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP/public infrastructure",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Represent as line features, not one point."
+      }
+    },
+    {
+      "sourceRow": 12,
+      "sourceKey": "excel-v1-d680aa2e4b9b0bf707e7f0e6cb9b6285de4af3a7498be8649a998d29de69bafc",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar & Arkula",
+        "Infrastructure / Facility": "Street-light network",
+        "Category": "Civic",
+        "Type": "Street lights",
+        "Ownership": "GP/Public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Operational / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP records required",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Each pole should become an individual GIS point if available."
+      }
+    },
+    {
+      "sourceRow": 13,
+      "sourceKey": "excel-v1-f6b08b25a3af9e994ccbfa99171bae85dbbec10a6c30d428970989e9328fedde",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Banking facility",
+        "Category": "Public service",
+        "Type": "Bank",
+        "Ownership": "Commercial/public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Not government-owned; included because it is a public service facility."
+      }
+    },
+    {
+      "sourceRow": 14,
+      "sourceKey": "excel-v1-738dcbf1457c611d8c9bba6305b81d29d5d74bf12e7f0f4667907ff96f513af7",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "ATM",
+        "Category": "Public service",
+        "Type": "ATM",
+        "Ownership": "Commercial/public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Not government-owned."
+      }
+    },
+    {
+      "sourceRow": 15,
+      "sourceKey": "excel-v1-387e4cca69412a1cfca8980de77268de2eb5c52f6d8a8b1f42f02704a66b9cfe",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Post Office",
+        "Category": "Public service",
+        "Type": "Post Office",
+        "Ownership": "Central Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Public service infrastructure."
+      }
+    },
+    {
+      "sourceRow": 16,
+      "sourceKey": "excel-v1-6da7ef5d5e0b38c27c16865cb899a9d494bc9f0517bd71fe313345856706fd81",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Public bus service",
+        "Category": "Transport",
+        "Type": "Bus service / stops",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Individual stop coordinates require mapping."
+      }
+    },
+    {
+      "sourceRow": 17,
+      "sourceKey": "excel-v1-5f3c2a69976ffc55ed94d454a1a8610935cc91204e2525ba35084b93c8864e90",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Open/all-weather road access",
+        "Category": "Transport",
+        "Type": "Road infrastructure",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Road network should be obtained as line geometry."
+      }
+    },
+    {
+      "sourceRow": 18,
+      "sourceKey": "excel-v1-f902d3c061115f731cdfb588c283a9fb98605cea0367a4026236625dffd8c241",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Birth & Death Registration Office",
+        "Category": "Administration",
+        "Type": "Civil registration service",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility directory",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Verify whether service is physically located at GP office."
+      }
+    },
+    {
+      "sourceRow": 19,
+      "sourceKey": "excel-v1-22cd840fbf91ae0967da924e89900957d0730ef0adfb9666f44b0d7a71b19735",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "Polling Station(s)",
+        "Category": "Civic",
+        "Type": "Polling station",
+        "Ownership": "Election/public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "Exact buildings should be taken from current polling-station list."
+      }
+    },
+    {
+      "sourceRow": 20,
+      "sourceKey": "excel-v1-a64b4e5352016087d10bcd7956b90e88b0f1776089af6020547ccea5ec48906d",
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Village/Area": "Adyar",
+        "Infrastructure / Facility": "ASHA services",
+        "Category": "Healthcare",
+        "Type": "ASHA worker/service",
+        "Ownership": "Government health system",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility directory",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Not a physical infrastructure point; keep in service layer if desired."
+      }
+    },
+    {
+      "sourceRow": 21,
+      "sourceKey": "excel-v1-46e3bd9c3dcc7927a961297a92dad2a3f7dba951a132118bf5e0af51b34491aa",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "Neermarga Grama Panchayat Office",
+        "Category": "Administration",
+        "Type": "Gram Panchayat Office",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business/local listing",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Named GP office."
+      }
+    },
+    {
+      "sourceRow": 22,
+      "sourceKey": "excel-v1-7d1c6e8fcd867fe3e0fa9357afa69e1b05c8a6e0ad9d0d98d969f7c0ae305a8d",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "Health Sub-Centre",
+        "Category": "Healthcare",
+        "Type": "Health Sub-Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "VillageInfo reports HSC within Neermarga."
+      }
+    },
+    {
+      "sourceRow": 23,
+      "sourceKey": "excel-v1-bf364a120b12a6f9fe85d5db855b25719d9f88fa238ba6ae39c717e56ab74a5f",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "Primary Health Centre",
+        "Category": "Healthcare",
+        "Type": "PHC",
+        "Ownership": "Government",
+        "Reported Quantity": 0,
+        "Status": "Not within village",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "PHC reported 5–10 km away; do not map it as an in-boundary facility."
+      }
+    },
+    {
+      "sourceRow": 24,
+      "sourceKey": "excel-v1-15e5b0776d7e3ea2691e93edf547f5c44477cd26babb93f66fa1a0e1b88791cb",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Bondathila",
+        "Infrastructure / Facility": "Health Sub-Centre",
+        "Category": "Healthcare",
+        "Type": "Health Sub-Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 0,
+        "Status": "Not within village",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "HSC reported 2–5 km away."
+      }
+    },
+    {
+      "sourceRow": 25,
+      "sourceKey": "excel-v1-665755dca90378da787732c63ecdd91150f9c884d4e42af7851ec96197063c27",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Bondathila",
+        "Infrastructure / Facility": "Primary Health Centre",
+        "Category": "Healthcare",
+        "Type": "PHC",
+        "Ownership": "Government",
+        "Reported Quantity": 0,
+        "Status": "Not within village",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "PHC reported 2–5 km away."
+      }
+    },
+    {
+      "sourceRow": 26,
+      "sourceKey": "excel-v1-be62b82813b95e80c970c6fe57a3dfae697cc3cb7a95cfeaebbf09eadb3a02fe",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga & Bondathila",
+        "Infrastructure / Facility": "Government education facilities",
+        "Category": "Education",
+        "Type": "Government school(s)",
+        "Ownership": "Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs current UDISE verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Current education records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Do not fabricate school names; populate from official UDISE/education list."
+      }
+    },
+    {
+      "sourceRow": 27,
+      "sourceKey": "excel-v1-fba37934cbca9f31ce452141ad4a682918a9ced65b85fb12347cbf8d0d2d001b",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga & Bondathila",
+        "Infrastructure / Facility": "Anganwadi centre(s)",
+        "Category": "Childcare",
+        "Type": "Anganwadi",
+        "Ownership": "Government/Community",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs current ICDS verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "ICDS/GP records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Exact centre names and GPS required."
+      }
+    },
+    {
+      "sourceRow": 28,
+      "sourceKey": "excel-v1-76662b54165ffb94c451ee945158168ca47dcd275cbde73ea26c4adc93f57fa4",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga & Bondathila",
+        "Infrastructure / Facility": "Public water assets",
+        "Category": "Water",
+        "Type": "Tanks / wells / borewells / pumps",
+        "Ownership": "Public/Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs JJM/GP verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "JJM/GP records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Create one row per physical asset when official list is obtained."
+      }
+    },
+    {
+      "sourceRow": 29,
+      "sourceKey": "excel-v1-2a076ebee8ced1a303c67dbd3e7fbfcc403d2622c2fc666c60dad7e5eb0f0b20",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga & Bondathila",
+        "Infrastructure / Facility": "Public road network",
+        "Category": "Transport",
+        "Type": "Roads",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP/public infrastructure",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Line geometry."
+      }
+    },
+    {
+      "sourceRow": 30,
+      "sourceKey": "excel-v1-a4f05f1ec53bc01bd8c480841b816b3aa057985dd5826a8698ad67a0b9e1d7f6",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga & Bondathila",
+        "Infrastructure / Facility": "Street-light network",
+        "Category": "Civic",
+        "Type": "Street lights",
+        "Ownership": "GP/Public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Operational / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP records required",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Individual poles require GPS survey."
+      }
+    },
+    {
+      "sourceRow": 31,
+      "sourceKey": "excel-v1-346102042d2b9fec792e3f53b508d137bf53852233108728b564d1ff864af8e4",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "Bank",
+        "Category": "Public service",
+        "Type": "Bank",
+        "Ownership": "Commercial/public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Not government-owned."
+      }
+    },
+    {
+      "sourceRow": 32,
+      "sourceKey": "excel-v1-8ff5f15126dfa1d0c726569dd3ff0f5e1328ca039d29d4df0158a63e5478c9fc",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "ATM",
+        "Category": "Public service",
+        "Type": "ATM",
+        "Ownership": "Commercial/public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Not government-owned."
+      }
+    },
+    {
+      "sourceRow": 33,
+      "sourceKey": "excel-v1-7f6f181dbfab2b1242075ac9808d5cb5580b54337dea5c4bc7b648e1db572b17",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "Post Office",
+        "Category": "Public service",
+        "Type": "Post Office",
+        "Ownership": "Central Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Public service infrastructure."
+      }
+    },
+    {
+      "sourceRow": 34,
+      "sourceKey": "excel-v1-5fc5457c60d4ded5a54818d65b0777c3d1aac8d221eed90d8f3e90a3857f70db",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "Public bus service",
+        "Category": "Transport",
+        "Type": "Bus service / stops",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Map individual stops separately."
+      }
+    },
+    {
+      "sourceRow": 35,
+      "sourceKey": "excel-v1-c6726902cb6cd53dc180d31751dcbe8a534b05e38a50f29a71a5d58917091a70",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "Birth & Death Registration Office",
+        "Category": "Administration",
+        "Type": "Civil registration service",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Available / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility directory",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "May be GP-based service rather than separate building."
+      }
+    },
+    {
+      "sourceRow": 36,
+      "sourceKey": "excel-v1-3f401d925dd264f374fca1e7c70c89d365ab4fc741ef4626dbb386f99a7272ec",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "Polling station(s)",
+        "Category": "Civic",
+        "Type": "Polling station",
+        "Ownership": "Election/public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "Use current election list."
+      }
+    },
+    {
+      "sourceRow": 37,
+      "sourceKey": "excel-v1-4edd2ac045477b205262238c75312cdf50ac29168f95f97a7ae0ea73f0a8854e",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "PDS shop(s)",
+        "Category": "Public service",
+        "Type": "Fair Price Shop",
+        "Ownership": "Government-regulated",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs current verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP/PDS records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Include only if you want public-service points."
+      }
+    },
+    {
+      "sourceRow": 38,
+      "sourceKey": "excel-v1-c02247ce5d320ebc0ab13127ca6dba0a50ca02cfa583283958b198f20d6ae827",
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Village/Area": "Neermarga",
+        "Infrastructure / Facility": "ICDS/Anganwadi services",
+        "Category": "Childcare",
+        "Type": "ICDS",
+        "Ownership": "Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Available / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "Physical centre list should come from ICDS."
+      }
+    },
+    {
+      "sourceRow": 39,
+      "sourceKey": "excel-v1-3b94f27e6f14c55e44c877724e9d12a1848f8c96acd8ad889c443131bdf95ada",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Pavoor Gram Panchayath Office",
+        "Category": "Administration",
+        "Type": "Gram Panchayat Office",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business/local listing",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Named GP office."
+      }
+    },
+    {
+      "sourceRow": 40,
+      "sourceKey": "excel-v1-ef148a61e1756a9a6d587e13d02cde098672ae94abce2c2542cc36e252a0a2fa",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Government Primary School",
+        "Category": "Education",
+        "Type": "Government Primary School",
+        "Ownership": "Government",
+        "Reported Quantity": 3,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps / Census-derived facility record",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Three government primary schools reported."
+      }
+    },
+    {
+      "sourceRow": 41,
+      "sourceKey": "excel-v1-6813ace055068da97178aac4d2a1c98548594135d202bf732420303fc6005724",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Government Middle School",
+        "Category": "Education",
+        "Type": "Government Middle School",
+        "Ownership": "Government",
+        "Reported Quantity": 2,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps / Census-derived facility record",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Two government middle schools reported."
+      }
+    },
+    {
+      "sourceRow": 42,
+      "sourceKey": "excel-v1-f526932de6b74accd4ac69a40418cc5aa84e3be36dd37be2dc45953d1e812a28",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Government Secondary School",
+        "Category": "Education",
+        "Type": "Government Secondary School",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps / Census-derived facility record",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "One government secondary school reported."
+      }
+    },
+    {
+      "sourceRow": 43,
+      "sourceKey": "excel-v1-0b1dd2070ad0e571d8a63857d90ef1b04e4dcd7e204b6f865d36f7e7c7026628",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Primary Health Centre",
+        "Category": "Healthcare",
+        "Type": "PHC",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business + Village Maps",
+        "Source Vintage": "Current / legacy facility record",
+        "Verification / Notes": "Named PHC at Inoli Road; map coordinates should be captured from the business listing."
+      }
+    },
+    {
+      "sourceRow": 44,
+      "sourceKey": "excel-v1-970bc389b7f5051faa2e6971d74545f3502ea8d6e92db83414c21073b67bcc03",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Primary Health Sub-Centre",
+        "Category": "Healthcare",
+        "Type": "Health Sub-Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 2,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Two sub-centres reported."
+      }
+    },
+    {
+      "sourceRow": 45,
+      "sourceKey": "excel-v1-5284b7e07229f87bfa204e023b889c60b8501495fdf2729becdbbbeb1fbc16ff",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Maternity & Child Welfare Centre",
+        "Category": "Healthcare",
+        "Type": "Maternity and Child Welfare Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "One centre reported."
+      }
+    },
+    {
+      "sourceRow": 46,
+      "sourceKey": "excel-v1-b131450428efef481ac4b27e4a3d1f85b36dd9882fe5f364fe7b9cc0ec064f97",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "TB Clinic",
+        "Category": "Healthcare",
+        "Type": "TB Clinic",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "One clinic reported."
+      }
+    },
+    {
+      "sourceRow": 47,
+      "sourceKey": "excel-v1-82849848399b2d311ab00e25e6f5f1b98d5190279bc004c51c32de3c60b6c749",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Veterinary Hospital",
+        "Category": "Animal Husbandry",
+        "Type": "Veterinary Hospital",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "One veterinary hospital reported."
+      }
+    },
+    {
+      "sourceRow": 48,
+      "sourceKey": "excel-v1-1d370538134be233e7abd3baf7d6920bf41a2e3d0e4cc1cdb08ffadee1dddade",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Family Welfare Centre",
+        "Category": "Healthcare",
+        "Type": "Family Welfare Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 2,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Two centres reported."
+      }
+    },
+    {
+      "sourceRow": 49,
+      "sourceKey": "excel-v1-2fdb91e0a57a737aa3a469694d2dc2771d9a663a16591310e5921c0ba07b4937",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Anganwadi Centre",
+        "Category": "Childcare",
+        "Type": "Anganwadi Centre",
+        "Ownership": "Government/Community",
+        "Reported Quantity": 1,
+        "Status": "Operational / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business + Village Maps",
+        "Source Vintage": "Current / legacy facility record",
+        "Verification / Notes": "Named local Anganwadi listing; village record confirms Anganwadi availability."
+      }
+    },
+    {
+      "sourceRow": 50,
+      "sourceKey": "excel-v1-12e81df25a4bc887818f8b9a250a5cda0e6dbeabf8d502f85941be59a93f5cd0",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "ASHA service",
+        "Category": "Healthcare",
+        "Type": "ASHA",
+        "Ownership": "Government health system",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Service rather than physical building."
+      }
+    },
+    {
+      "sourceRow": 51,
+      "sourceKey": "excel-v1-fb6615578f16e0b29a464748c1b11d8dbd686da967e08f4b6c248fcfc37c183e",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Tap-water supply",
+        "Category": "Water",
+        "Type": "Public water supply",
+        "Ownership": "Public/Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Water source category; not an individual asset."
+      }
+    },
+    {
+      "sourceRow": 52,
+      "sourceKey": "excel-v1-b58be871694adba937693fd8d1c4e80f6fd63ae2a3364d594ad70e1513b8f47a",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Uncovered well",
+        "Category": "Water",
+        "Type": "Public/household well",
+        "Ownership": "Public/community",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Source category; individual well coordinates unavailable."
+      }
+    },
+    {
+      "sourceRow": 53,
+      "sourceKey": "excel-v1-b6996a96d83b0bede60f33632696ac15593d12dca19393fb38aedf27166ea2b6",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Hand pump",
+        "Category": "Water",
+        "Type": "Hand pump",
+        "Ownership": "Public/community",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Individual locations unavailable."
+      }
+    },
+    {
+      "sourceRow": 54,
+      "sourceKey": "excel-v1-55bd67733c820b4ee745b56dc0a47aae68215fba28a874f3d2c970994abf27be",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Tube wells / boreholes",
+        "Category": "Water",
+        "Type": "Borewell / tube well",
+        "Ownership": "Public/community",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Individual locations unavailable."
+      }
+    },
+    {
+      "sourceRow": 55,
+      "sourceKey": "excel-v1-e8323b42dac358188a4b15b7f1b6ba516bca55b10fc712f7aaa0459c4b96c37d",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Open drainage system",
+        "Category": "Sanitation",
+        "Type": "Drainage",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Reported",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "OneFiveNine / Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Map as line network if GIS data can be obtained."
+      }
+    },
+    {
+      "sourceRow": 56,
+      "sourceKey": "excel-v1-8551ca3ebb04f457f320b478cb3c8df14b7c5d52d1494a567453e5b7248237cd",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "District road",
+        "Category": "Transport",
+        "Type": "District Road",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Road network rather than point."
+      }
+    },
+    {
+      "sourceRow": 57,
+      "sourceKey": "excel-v1-bd497a2d50de5e745c88509f7487d3efaf16f0baed64f64d4b6e9cc100cda106",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Pucca / black-topped roads",
+        "Category": "Transport",
+        "Type": "Road Network",
+        "Ownership": "Public",
+        "Reported Quantity": "Multiple",
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Line features."
+      }
+    },
+    {
+      "sourceRow": 58,
+      "sourceKey": "excel-v1-146b2c3c3c9ba430939d13d97ecc89f13acef84115f2f1b88fde592c38917f57",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Kuchha roads",
+        "Category": "Transport",
+        "Type": "Road Network",
+        "Ownership": "Public",
+        "Reported Quantity": "Multiple",
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Line features."
+      }
+    },
+    {
+      "sourceRow": 59,
+      "sourceKey": "excel-v1-5e68e438d643929c4d3a6f8ec5aaf6367b7f32d611e58d7f1d69f56e02bf4c36",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Footpaths",
+        "Category": "Transport",
+        "Type": "Footpath",
+        "Ownership": "Public",
+        "Reported Quantity": "Multiple",
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Line features."
+      }
+    },
+    {
+      "sourceRow": 60,
+      "sourceKey": "excel-v1-87a10122f0ff9436d8534037ab6931c1a3e3463e5aefbcda078204d7010d8be9",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Public bus service",
+        "Category": "Transport",
+        "Type": "Bus service / stops",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Map individual stops."
+      }
+    },
+    {
+      "sourceRow": 61,
+      "sourceKey": "excel-v1-7b2cc537c003f001a494e069c8ab19bd3ab1989e72539c25e1ee5ed65d8e2c5e",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Auto service",
+        "Category": "Transport",
+        "Type": "Auto service",
+        "Ownership": "Private/public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Service, not necessarily fixed infrastructure."
+      }
+    },
+    {
+      "sourceRow": 62,
+      "sourceKey": "excel-v1-28f347840004cb79ff7475086578307f137183591afce0346fd04c7808745b45",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Internet / CSC",
+        "Category": "Digital public service",
+        "Type": "Common Service Centre",
+        "Ownership": "Public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Verify current centre name/location."
+      }
+    },
+    {
+      "sourceRow": 63,
+      "sourceKey": "excel-v1-55fbf8c70ce510a9516c23b7d7db3c450c8bbe2f8ce28c23c54c4ba73bd97658",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "PDS shop",
+        "Category": "Public service",
+        "Type": "Fair Price Shop",
+        "Ownership": "Government-regulated",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Verify current shop location."
+      }
+    },
+    {
+      "sourceRow": 64,
+      "sourceKey": "excel-v1-0d1f2bc19ee5a6b036b7543dc431cfeea9e41e7d43dee055c30b1b872539f88a",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Sports field",
+        "Category": "Community",
+        "Type": "Sports Field",
+        "Ownership": "Public/community",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village Maps",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Exact location needs field/GIS verification."
+      }
+    },
+    {
+      "sourceRow": 65,
+      "sourceKey": "excel-v1-b0a6267d6c9c349796d6a7737ac06f442c3d8c9448bbe7345cfef39a67f64c25",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Polling station",
+        "Category": "Civic",
+        "Type": "Polling Station",
+        "Ownership": "Election/public",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Current polling list should be used for exact building."
+      }
+    },
+    {
+      "sourceRow": 66,
+      "sourceKey": "excel-v1-983ccaff7de8ce2d88688b301e62196299cca5b18ffaa128ad8ef6e87ddc9dca",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Birth & Death Registration Office",
+        "Category": "Administration",
+        "Type": "Civil Registration",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Verify current service location."
+      }
+    },
+    {
+      "sourceRow": 67,
+      "sourceKey": "excel-v1-42fceeb0dfb4374b883b3ba3e3b8faf79dc8cfb874398a48e9ffff8372ba8fdd",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Electricity supply infrastructure",
+        "Category": "Utilities",
+        "Type": "Electricity distribution",
+        "Ownership": "Public utility",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Census/public directory",
+        "Verification / Notes": "Individual transformers/substations not enumerated in source."
+      }
+    },
+    {
+      "sourceRow": 68,
+      "sourceKey": "excel-v1-3a29e8f355e9e7396866ab5cc63ae310f974b8866479b9e9eb1233af1c5054dc",
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Village/Area": "Pavoor",
+        "Infrastructure / Facility": "Street-light network",
+        "Category": "Civic",
+        "Type": "Street lights",
+        "Ownership": "GP/Public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs current GP data",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Map each pole separately if data obtained."
+      }
+    },
+    {
+      "sourceRow": 69,
+      "sourceKey": "excel-v1-a3a90b32d78c84da29ee89e59ec5c84a922283e29bc9454d19f02024e2b351c7",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Harekala Gram Panchayat New Building",
+        "Category": "Administration",
+        "Type": "Gram Panchayat Office",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business/local listing",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Named new GP building."
+      }
+    },
+    {
+      "sourceRow": 70,
+      "sourceKey": "excel-v1-4f0b913d0522f39356c0b543cf39bdab32f9463c55f1b2db28bce00ec7d78e72",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Health Sub-Centre",
+        "Category": "Healthcare",
+        "Type": "Health Sub-Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "HSC reported within village."
+      }
+    },
+    {
+      "sourceRow": 71,
+      "sourceKey": "excel-v1-a9888257e765069adb65497c4188fd9556eccc259b3e9ee79398ba47e4f4fbae",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Primary Health Centre",
+        "Category": "Healthcare",
+        "Type": "PHC",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "VillageInfo reports PHC within village; exact government facility name/GPS should be verified. A separate Raziya PHC listing exists but should not be assumed to be government-owned."
+      }
+    },
+    {
+      "sourceRow": 72,
+      "sourceKey": "excel-v1-37d855c8ba177f901d97bfd71c9c08c213c49a1999de47ff118b0759b86cf8da",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Government education facilities",
+        "Category": "Education",
+        "Type": "Government school(s)",
+        "Ownership": "Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs current UDISE verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Current education records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Search results show schools in Harekala but do not establish government ownership for every named school."
+      }
+    },
+    {
+      "sourceRow": 73,
+      "sourceKey": "excel-v1-24307c7a8d9bcb71f96ca790397f0b38c57cbfc9b5c1891f385df8ac00a197e4",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Anganwadi centre(s)",
+        "Category": "Childcare",
+        "Type": "Anganwadi",
+        "Ownership": "Government/Community",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs ICDS verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "ICDS/GP records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Exact centre names/GPS required."
+      }
+    },
+    {
+      "sourceRow": 74,
+      "sourceKey": "excel-v1-ac11c3adf9f378bfd2e3190a0b1319dc55d31a10b4c0ef2520e15da23ce05e0e",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Harekala-Adyar bridge",
+        "Category": "Transport",
+        "Type": "Road bridge",
+        "Ownership": "Government/Public",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Public project/history",
+        "Source Vintage": "2023/current",
+        "Verification / Notes": "Major public bridge connecting Harekala and Adyar; exact boundary ownership should be checked."
+      }
+    },
+    {
+      "sourceRow": 75,
+      "sourceKey": "excel-v1-72e85b59fb8d10c069793d16cbc15a0bedaca75b121f95f9d590d56c0bca22c9",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Harekala water project / dam infrastructure",
+        "Category": "Water",
+        "Type": "Vented dam / water infrastructure",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational / project-related",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Karnataka government budget/project records",
+        "Source Vintage": "2018–current",
+        "Verification / Notes": "Harekala dam-cum-bridge is public water infrastructure."
+      }
+    },
+    {
+      "sourceRow": 76,
+      "sourceKey": "excel-v1-25767c52cefecac700e4e2851042cd1ca25628cc5b930b82f81a05aba3381a15",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Public water assets",
+        "Category": "Water",
+        "Type": "Tanks / reservoirs / pumps / public water points",
+        "Ownership": "Public/Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs JJM/GP verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "JJM/GP records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Individual asset list is required for GIS."
+      }
+    },
+    {
+      "sourceRow": 77,
+      "sourceKey": "excel-v1-d98a377112a2cc4caed9907bb7cc70578b860cc89ac1957fee3126f89c7cef98",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Public road network",
+        "Category": "Transport",
+        "Type": "Roads",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP/public infrastructure",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Line features."
+      }
+    },
+    {
+      "sourceRow": 78,
+      "sourceKey": "excel-v1-84d705fa4e9a4a45a6727579b6985a8bc37d869675d3e5e07f1c1e973d2b6015",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Street-light network",
+        "Category": "Civic",
+        "Type": "Street lights",
+        "Ownership": "GP/Public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Operational / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP records required",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Individual poles require survey."
+      }
+    },
+    {
+      "sourceRow": 79,
+      "sourceKey": "excel-v1-b23fc710eed929765b9ed1308e6abf5efdfc9ae48a99931153cb5e70ae415489",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Bank",
+        "Category": "Public service",
+        "Type": "Bank",
+        "Ownership": "Commercial/public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Not government-owned."
+      }
+    },
+    {
+      "sourceRow": 80,
+      "sourceKey": "excel-v1-c6bab255a1b618fee207288f235c7b81ef29407b361c6c859cb3b8ff391312e8",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "ATM",
+        "Category": "Public service",
+        "Type": "ATM",
+        "Ownership": "Commercial/public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Not government-owned."
+      }
+    },
+    {
+      "sourceRow": 81,
+      "sourceKey": "excel-v1-7d4cd4aa703b4077a155bdaa04917e3fd328c5e90ba204195955f73002a3c1bf",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Post Office",
+        "Category": "Public service",
+        "Type": "Post Office",
+        "Ownership": "Central Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Public service infrastructure."
+      }
+    },
+    {
+      "sourceRow": 82,
+      "sourceKey": "excel-v1-cbc0811f4a919d3c866fb4686aeda8bf73889ffe377dbe7407354adddc36f3af",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Public bus service",
+        "Category": "Transport",
+        "Type": "Bus service / stops",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Map individual stops separately."
+      }
+    },
+    {
+      "sourceRow": 83,
+      "sourceKey": "excel-v1-4ca9c3f5e7959d777a9d2e6f1ebf2b81b476a8902c56f5175d25237ab5229b61",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Birth & Death Registration Office",
+        "Category": "Administration",
+        "Type": "Civil Registration",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Available / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility directory",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "May be GP service."
+      }
+    },
+    {
+      "sourceRow": 84,
+      "sourceKey": "excel-v1-5acfac37c10d9e79334f83575c9a4b90f424368b1224ef9c8de18bf110098d17",
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Village/Area": "Harekala",
+        "Infrastructure / Facility": "Polling station(s)",
+        "Category": "Civic",
+        "Type": "Polling station",
+        "Ownership": "Election/public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "Use current election list."
+      }
+    },
+    {
+      "sourceRow": 85,
+      "sourceKey": "excel-v1-58fde3da88e9a2f8bde2016cf9e56d6bf20804ca69bd0e8d9e52e110b16d9274",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Pudu Gram Panchayath Office",
+        "Category": "Administration",
+        "Type": "Gram Panchayat Office",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business/local listing + VillageInfo",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Panchayath Complex, Old Road, Farangipete."
+      }
+    },
+    {
+      "sourceRow": 86,
+      "sourceKey": "excel-v1-8b98d7981404b1604b405cda8b78dcba1519a04cd53b1865fe6bce0f8305caf5",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Pudu Primary Health Centre",
+        "Category": "Healthcare",
+        "Type": "PHC",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Operational / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Business + Karnataka Health records",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Named PHC; government status supported by Karnataka health listing."
+      }
+    },
+    {
+      "sourceRow": 87,
+      "sourceKey": "excel-v1-70c771d673022240fff50c49b31a4ce6a0eac8cfe8493b63c3a46abd3d165a20",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Health Sub-Centre",
+        "Category": "Healthcare",
+        "Type": "Health Sub-Centre",
+        "Ownership": "Government",
+        "Reported Quantity": 0,
+        "Status": "Not within village",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "HSC reported 1–2 km away, not inside Pudu."
+      }
+    },
+    {
+      "sourceRow": 88,
+      "sourceKey": "excel-v1-f2ea89b2d6641a84b40d330262293f58d1540fcf23a57f16f55d583c18625032",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Community Health Centre",
+        "Category": "Healthcare",
+        "Type": "CHC",
+        "Ownership": "Government",
+        "Reported Quantity": 0,
+        "Status": "Not within village",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "CHC reported within <1 km, not inside Pudu."
+      }
+    },
+    {
+      "sourceRow": 89,
+      "sourceKey": "excel-v1-78536dc14670687f02f0db09af72b4e974f6fc92b6e12252854bf6f0ef146323",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Government education facilities",
+        "Category": "Education",
+        "Type": "Government school(s)",
+        "Ownership": "Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs current UDISE verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Current education records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Exact current school names/counts require official education data."
+      }
+    },
+    {
+      "sourceRow": 90,
+      "sourceKey": "excel-v1-807383f59a87779798194640dc1ad5b3cc6cdac8841201ebf7638d7581e19725",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Moulana Azad Model School",
+        "Category": "Education",
+        "Type": "Government High School",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Reported / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Secondary government-school listing",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "Verify current management and exact GPS before final GIS import."
+      }
+    },
+    {
+      "sourceRow": 91,
+      "sourceKey": "excel-v1-b7e3c29a3cf7fceeea9e03224ebd6cd3efc6fa8e063160e65096c780e802bf6f",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Anganwadi centre(s)",
+        "Category": "Childcare",
+        "Type": "Anganwadi",
+        "Ownership": "Government/Community",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs ICDS verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "ICDS/GP records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Exact centre names/GPS required."
+      }
+    },
+    {
+      "sourceRow": 92,
+      "sourceKey": "excel-v1-129395d4684169e1cc1882f98f4994a1ac0ed601a89c055e2ea6136c2ea7c675",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Public water assets",
+        "Category": "Water",
+        "Type": "Tanks / wells / borewells / pumps",
+        "Ownership": "Public/Government",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs JJM/GP verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "JJM/GP records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Individual asset list is required for GIS."
+      }
+    },
+    {
+      "sourceRow": 93,
+      "sourceKey": "excel-v1-3b7acf6cdaa6e69874bb761615b8b576b286001fe4eea09c1d005f1cc4f03831",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Public road network",
+        "Category": "Transport",
+        "Type": "Roads",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Operational",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP/public infrastructure",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Line features."
+      }
+    },
+    {
+      "sourceRow": 94,
+      "sourceKey": "excel-v1-a706212342ad80aa985d1f4a8e9a95f19ed619310cff89371685d75436785194",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Street-light network",
+        "Category": "Civic",
+        "Type": "Street lights",
+        "Ownership": "GP/Public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Operational / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP records required",
+        "Source Vintage": "Current",
+        "Verification / Notes": "Individual poles require survey."
+      }
+    },
+    {
+      "sourceRow": 95,
+      "sourceKey": "excel-v1-bbcf394af3d362780d440cf1569966c9cb37aed9e6c41d04e52ffa6ab90effff",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "ATM",
+        "Category": "Public service",
+        "Type": "ATM",
+        "Ownership": "Commercial/public service",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Not government-owned."
+      }
+    },
+    {
+      "sourceRow": 96,
+      "sourceKey": "excel-v1-f85547a5e3ed1334bb8a5dc71dda5fcb6b5c5a920ce3440a41579cbc6b0c5e77",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Post Office",
+        "Category": "Public service",
+        "Type": "Post Office",
+        "Ownership": "Central Government",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Public service infrastructure."
+      }
+    },
+    {
+      "sourceRow": 97,
+      "sourceKey": "excel-v1-0a2db6b824f43dfa666217226bd7f819fabe6410b0db7cb1b004ec350bf8d524",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Public bus service",
+        "Category": "Transport",
+        "Type": "Bus service / stops",
+        "Ownership": "Public",
+        "Reported Quantity": 1,
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Map individual stops separately."
+      }
+    },
+    {
+      "sourceRow": 98,
+      "sourceKey": "excel-v1-4241b84f77ce311a85817e8b946cf912d9c69c26c9ab7e2ae1a55dcf1592ac7b",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Railway access / Faringapete Halt",
+        "Category": "Transport",
+        "Type": "Railway station",
+        "Ownership": "Central Government/Public",
+        "Reported Quantity": 0,
+        "Status": "Outside village (<1 km)",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "VillageInfo",
+        "Source Vintage": "Current directory",
+        "Verification / Notes": "Do NOT map as inside Pudu; included as nearby infrastructure only."
+      }
+    },
+    {
+      "sourceRow": 99,
+      "sourceKey": "excel-v1-1000c46f4bbc2a8f9f47d4eb8e45a38e594f1a1588489ceca5d9a0e68eb5fb9b",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Birth & Death Registration Office",
+        "Category": "Administration",
+        "Type": "Civil Registration",
+        "Ownership": "Government",
+        "Reported Quantity": 1,
+        "Status": "Available / verify",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility directory",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "May be GP service."
+      }
+    },
+    {
+      "sourceRow": 100,
+      "sourceKey": "excel-v1-34bd0df39f2918a2d7bb1de4ebd52704042662a9fc38a3451f2c47952873f544",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "Polling station(s)",
+        "Category": "Civic",
+        "Type": "Polling station",
+        "Ownership": "Election/public",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Available",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "Village facility records",
+        "Source Vintage": "Current verification needed",
+        "Verification / Notes": "Use current election list."
+      }
+    },
+    {
+      "sourceRow": 101,
+      "sourceKey": "excel-v1-3fa2bf61465e2c0ff92123bf1a355d66b5cd47100f3ee5686f38e8f5bc8eba3c",
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Village/Area": "Pudu",
+        "Infrastructure / Facility": "PDS shop(s)",
+        "Category": "Public service",
+        "Type": "Fair Price Shop",
+        "Ownership": "Government-regulated",
+        "Reported Quantity": "Multiple / verify",
+        "Status": "Needs current verification",
+        "Latitude": "",
+        "Longitude": "",
+        "Source": "GP/PDS records required",
+        "Source Vintage": "2026",
+        "Verification / Notes": "Include in public-service layer if desired."
+      }
+    }
+  ],
+  "panchayats": [
+    {
+      "sourceRow": 2,
+      "sourceData": {
+        "Panchayat": "Adyar",
+        "Taluka": "Mangaluru Taluka",
+        "Villages": "Adyar; Arkula",
+        "Number of Villages": 2,
+        "Administrative Note": "Adyar GP covers two villages.",
+        "Source": "VillageInfo"
+      }
+    },
+    {
+      "sourceRow": 3,
+      "sourceData": {
+        "Panchayat": "Neermarga",
+        "Taluka": "Mangaluru Taluka",
+        "Villages": "Neermarga; Bondathila",
+        "Number of Villages": 2,
+        "Administrative Note": "Neermarga GP covers two villages.",
+        "Source": "Mangaluru GP list"
+      }
+    },
+    {
+      "sourceRow": 4,
+      "sourceData": {
+        "Panchayat": "Pavuru",
+        "Taluka": "Ullala Taluka",
+        "Villages": "Pavoor",
+        "Number of Villages": 1,
+        "Administrative Note": "Pavuru GP covers Pavoor.",
+        "Source": "Pavuru GP page"
+      }
+    },
+    {
+      "sourceRow": 5,
+      "sourceData": {
+        "Panchayat": "Harekala",
+        "Taluka": "Ullala Taluka",
+        "Villages": "Harekala",
+        "Number of Villages": 1,
+        "Administrative Note": "Harekala GP covers Harekala.",
+        "Source": "Harekala GP page"
+      }
+    },
+    {
+      "sourceRow": 6,
+      "sourceData": {
+        "Panchayat": "Pudu",
+        "Taluka": "Bantval Taluka",
+        "Villages": "Pudu",
+        "Number of Villages": 1,
+        "Administrative Note": "Pudu GP covers Pudu.",
+        "Source": "Pudu GP page"
+      }
+    }
+  ]
+}

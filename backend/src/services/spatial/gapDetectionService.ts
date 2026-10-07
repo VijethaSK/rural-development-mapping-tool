@@ -10,6 +10,13 @@ import {
   GapSeverity
 } from './types.js';
 import { SpatialUtils } from './spatialUtils.js';
+import { GAP_ANALYSIS_DEMO_SOURCE } from './gapAnalysisDemoProvenance.js';
+import {
+  getVerifiedRoadLineString,
+  getVerifiedSpatialPoint,
+  isExplicitSyntheticDemoRecord,
+  isValidGeoLineString
+} from './spatialCoordinateEligibility.js';
 import { School, Road } from '../../models/Infrastructure.js';
 import { Panchayat } from '../../models/Panchayat.js';
 import { getRoutingProvider } from '../routing/routingProvider.js';
@@ -139,6 +146,7 @@ export class GapDetectionService {
     options: GapAnalysisOptions = {}
   ): Promise<{
     underservedAreas: UnderservedArea[];
+    demonstrationGridCells?: UnderservedArea[];
     schoolBuffers: SchoolBufferZone[];
     totalAnalyzed: number;
     totalHabitations: number;
@@ -156,9 +164,20 @@ export class GapDetectionService {
     if (options.panchayatId) {
       panchayatQuery._id = options.panchayatId;
     }
-    const panchayat = await Panchayat.findOne(panchayatQuery).lean();
-
-    const habitations = panchayat?.habitations || [];
+    const panchayat: any = await Panchayat.findOne(panchayatQuery).lean();
+    const syntheticPanchayat = panchayat?.source === GAP_ANALYSIS_DEMO_SOURCE &&
+      panchayat?.dataOrigin === 'SYNTHETIC_DEMO' && panchayat?.isSynthetic === true &&
+      panchayat?.coordinatesVerified === false && panchayat?.coordinateSource === 'SYNTHETIC' &&
+      panchayat?.coordinateStatus === 'DEMO_ONLY';
+    const syntheticPreview = options.includeSyntheticDemo === true && syntheticPanchayat;
+    const sourceHabitations = panchayat?.habitations || [];
+    const habitations = syntheticPanchayat
+      ? syntheticPreview
+        ? sourceHabitations.filter((habitation: any) => habitation.dataOrigin === 'SYNTHETIC_DEMO' &&
+          habitation.isSynthetic === true && habitation.coordinatesVerified === false &&
+          habitation.coordinateSource === 'SYNTHETIC' && habitation.coordinateStatus === 'DEMO_ONLY')
+        : []
+      : sourceHabitations;
 
     // 2. Fetch Schools and Roads
     const infraFilter: any = {};
@@ -168,9 +187,23 @@ export class GapDetectionService {
 
     const schoolsData = await School.find(infraFilter).lean();
     const roadsData = await Road.find(infraFilter).lean();
+    // Synthetic geometry is included only when the isolated preview explicitly
+    // opts in and the selected Panchayat itself is the marked fixture. The HTTP
+    // production path never sets this option.
+    const syntheticDemonstration = syntheticPreview && [...schoolsData, ...roadsData]
+      .some((record: any) => isExplicitSyntheticDemoRecord(record) &&
+        Array.isArray(record.syntheticDemoRoles) &&
+        record.syntheticDemoRoles.some((role: unknown) => role === 'GAP_ANALYSIS_FACILITY' || role === 'GAP_ANALYSIS_ROAD'));
+    const selectedSchools = syntheticDemonstration
+      ? schoolsData.filter((record: any) => isExplicitSyntheticDemoRecord(record) && record.syntheticDemoRoles?.includes('GAP_ANALYSIS_FACILITY'))
+      : schoolsData.filter((record: any) => getVerifiedSpatialPoint(record) !== null);
+    const selectedRoads = syntheticDemonstration
+      ? roadsData.filter((record: any) => isExplicitSyntheticDemoRecord(record) && record.syntheticDemoRoles?.includes('GAP_ANALYSIS_ROAD') &&
+        (isValidGeoLineString(record.lineGeometry) || isValidGeoLineString(record.geometry)))
+      : roadsData.filter((record: any) => getVerifiedRoadLineString(record) !== null);
 
     // Transform school candidates
-    const schoolCandidates: FacilityCandidate[] = schoolsData
+    const schoolCandidates: FacilityCandidate[] = selectedSchools
       .map((s: any) => {
         let lat: number | undefined;
         let lng: number | undefined;
@@ -196,7 +229,7 @@ export class GapDetectionService {
       .filter((s) => Number.isFinite(s.location.lat) && Number.isFinite(s.location.lng) && s.location.lat >= -90 && s.location.lat <= 90 && s.location.lng >= -180 && s.location.lng <= 180);
 
     // Transform road candidates
-    const roadCandidates: RoadSegmentCandidate[] = roadsData
+    const roadCandidates: RoadSegmentCandidate[] = selectedRoads
       .map((r: any) => ({
         id: String(r._id),
         name: r.name,
@@ -204,7 +237,10 @@ export class GapDetectionService {
         surfaceType: r.surfaceType,
         coordinates: (r.lineGeometry?.coordinates || (r.geometry as any)?.coordinates || []) as [number, number][]
       }))
-      .filter((r) => r.coordinates.length >= 2);
+      .filter((r) => r.coordinates.length >= 2 && r.coordinates.every((coordinate) =>
+        Array.isArray(coordinate) && coordinate.length === 2 &&
+        Number.isFinite(coordinate[0]) && coordinate[0] >= -180 && coordinate[0] <= 180 &&
+        Number.isFinite(coordinate[1]) && coordinate[1] >= -90 && coordinate[1] <= 90));
 
     // 3. Generate Radial Coverage Buffer Polygons around each school
     const schoolBuffers: SchoolBufferZone[] = schoolCandidates.map((sch) => ({
@@ -219,6 +255,7 @@ export class GapDetectionService {
     const routingProvider = computeNetwork ? await getRoutingProvider(options.panchayatId) : null;
 
     const underservedAreas: UnderservedArea[] = [];
+    const demonstrationGridCells: UnderservedArea[] = [];
 
     // 4. Analyze Habitations (Villages)
     for (let idx = 0; idx < habitations.length; idx++) {
@@ -326,11 +363,11 @@ export class GapDetectionService {
     // 5. Analyze Spatial Grid Cells (Polygons covering the Panchayat territory)
     // Establish bounding box
     const allCoords: [number, number][] = [];
-    if (panchayat?.centerCoord) {
+    if (panchayat?.centerCoord && (!syntheticPanchayat || syntheticPreview)) {
       allCoords.push([panchayat.centerCoord.lng, panchayat.centerCoord.lat]);
     }
     schoolCandidates.forEach((s) => allCoords.push([s.location.lng, s.location.lat]));
-    habitations.forEach((h) => allCoords.push([h.location.coordinates[0], h.location.coordinates[1]]));
+    habitations.forEach((habitation: any) => allCoords.push([habitation.location.coordinates[0], habitation.location.coordinates[1]]));
     roadCandidates.forEach((r) => r.coordinates.forEach((c) => allCoords.push(c)));
 
     let minLng = 0;
@@ -364,22 +401,25 @@ export class GapDetectionService {
       const isSchoolUnderserved = schoolRatio == null || schoolRatio >= 1;
       const isRoadUnderserved = roadRatio == null || roadRatio >= 1;
 
+      let primaryIssue: UnderservedArea['primaryIssue'] = 'Served';
       if (isSchoolUnderserved || isRoadUnderserved) {
-        let primaryIssue: UnderservedArea['primaryIssue'] = 'School_Gap';
+        primaryIssue = 'School_Gap';
         if (isSchoolUnderserved && isRoadUnderserved) {
           primaryIssue = 'Dual_Deprivation';
         } else if (isRoadUnderserved) {
           primaryIssue = 'Road_Isolation';
         }
 
-        const assessment = assessOverallGap(
-          nearestSchool?.distanceKm,
-          schoolThreshold,
-          nearestRoad?.distanceKm,
-          roadThreshold
-        );
+      }
 
-        underservedAreas.push({
+      const assessment = assessOverallGap(
+        nearestSchool?.distanceKm,
+        schoolThreshold,
+        nearestRoad?.distanceKm,
+        roadThreshold
+      );
+
+      const gridArea: UnderservedArea = {
           id: cell.id,
           name: `Spatial Sector ${cell.id}`,
           areaType: 'GridCell',
@@ -420,7 +460,10 @@ export class GapDetectionService {
             nearestRoad?.distanceKm,
             roadThreshold
           )
-        });
+        };
+      if (syntheticDemonstration) demonstrationGridCells.push(gridArea);
+      if (isSchoolUnderserved || isRoadUnderserved) {
+        underservedAreas.push(gridArea);
       }
     }
 
@@ -433,7 +476,8 @@ export class GapDetectionService {
       totalAnalyzed,
       totalHabitations: habitations.length,
       totalGridCells: gridCells.length,
-      spatialAnalysisAvailable
+      spatialAnalysisAvailable,
+      ...(syntheticDemonstration ? { demonstrationGridCells } : {})
     };
   }
 
@@ -525,6 +569,9 @@ export class GapDetectionService {
         : 'Spatial analysis unavailable — coordinates not provided/verified.',
       metrics,
       underservedAreas: detection.underservedAreas,
+      ...(detection.demonstrationGridCells
+        ? { demonstrationGridCells: detection.demonstrationGridCells, syntheticDemonstration: true }
+        : {}),
       schoolBuffers: detection.schoolBuffers,
       configuredThresholds: {
         schoolMaxDistanceKm: schoolThreshold,

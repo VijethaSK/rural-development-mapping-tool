@@ -12,6 +12,8 @@ import { countRoadRecords, filterMappedRoads, getRoadLineCoordinates } from '../
 import { commitMapDataIfCurrent, createMapBootstrapGuard, createMapRequestGate, deriveScopedMapCenter, runMapRequestIfCurrent } from '../utils/mapPageScope.mjs';
 import { isValidGapCenter, toLeafletPolygonPositions } from '../utils/gapGeometry.mjs';
 import { toFacilityMarkerPosition } from '../utils/facilityMarkerPosition.mjs';
+import { hasVerifiedSpatialProvenance } from '../utils/spatialProvenance.mjs';
+import { normalizeInfrastructureType } from '../utils/mapInfrastructureType.mjs';
 import { formatPopulation } from '../utils/populationDisplay.mjs';
 import { formatCoverageStatus, formatDistanceRatio, formatGapSeverity, formatSeverityBasis } from '../utils/gapAnalysisSeverity.mjs';
 import HeatmapOverlay from '../components/HeatmapOverlay';
@@ -27,6 +29,11 @@ interface Panchayat {
   state?: string;
   wards?: string[];
   centerCoord?: { lat: number; lng: number } | null;
+  coordinatesVerified?: boolean;
+  coordinateStatus?: string;
+  coordinateSource?: string | null;
+  isSynthetic?: boolean;
+  source?: string;
   dataOrigin?: string;
   taluka?: string;
   villages?: string[];
@@ -111,10 +118,10 @@ const getConditionColor = (condition?: string | null): string => {
   }
 };
 
-const createInfraIcon = (type: string, level: string, isHighlighted: boolean = false) => {
+const createInfraIcon = (type: string | null | undefined, level: string, isHighlighted: boolean = false) => {
   const color = getPriorityColor(level);
-  let emoji = '🏛️';
-  const t = type.toLowerCase();
+  const t = normalizeInfrastructureType(type);
+  let emoji = t ? '🏛️' : '📍';
   if (t.includes('school')) emoji = '🏫';
   else if (t.includes('health') || t.includes('phc')) emoji = '🏥';
   else if (t.includes('water')) emoji = '💧';
@@ -179,6 +186,8 @@ const depotIcon = L.divIcon({
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
+
+const SYNTHETIC_DEMO_SOURCE = 'RDMT_GAP_ANALYSIS_SYNTHETIC_DEMO_V1';
 
 // ----------------- MAP CONTROLLER HELPER -----------------
 
@@ -439,10 +448,19 @@ export default function MapPage() {
   }, [fetchCentralMapData]);
 
   // Center coordinate determination
-  const mapCenter = useMemo(
-    () => deriveScopedMapCenter(selectedPanchayat, rankedAssets),
-    [selectedPanchayat, rankedAssets]
-  );
+  const isSyntheticDemoPanchayat = selectedPanchayat?.source === SYNTHETIC_DEMO_SOURCE &&
+    selectedPanchayat.dataOrigin === 'SYNTHETIC_DEMO' && selectedPanchayat.isSynthetic === true &&
+    selectedPanchayat.coordinatesVerified === false && selectedPanchayat.coordinateSource === 'SYNTHETIC' &&
+    selectedPanchayat.coordinateStatus === 'DEMO_ONLY';
+  const mapCenter = useMemo(() => {
+    if (isSyntheticDemoPanchayat && selectedPanchayat?.centerCoord) {
+      const { lat, lng } = selectedPanchayat.centerCoord;
+      if (Number.isFinite(lat) && lat >= -90 && lat <= 90 && Number.isFinite(lng) && lng >= -180 && lng <= 180) {
+        return [lat, lng] as [number, number];
+      }
+    }
+    return deriveScopedMapCenter(selectedPanchayat, rankedAssets);
+  }, [isSyntheticDemoPanchayat, selectedPanchayat, rankedAssets]);
 
   // Available Wards
   const availableWards = useMemo(() => {
@@ -460,7 +478,7 @@ export default function MapPage() {
 
   const filteredAssets = useMemo(() => {
     return rankedAssets.filter((item) => {
-      if (typeFilter !== 'All' && item.type.toLowerCase() !== typeFilter.toLowerCase()) {
+      if (typeFilter !== 'All' && normalizeInfrastructureType(item.type) !== normalizeInfrastructureType(typeFilter)) {
         return false;
       }
       if (categoryFilter !== 'All' && item.sourceCategory !== categoryFilter) return false;
@@ -482,7 +500,7 @@ export default function MapPage() {
 
   // Road records can have approximate Points, but only valid LineStrings are mapped as roads.
   const roadRecordAssets = useMemo(
-    () => filteredAssets.filter((asset) => asset.type.toLowerCase() === 'road'),
+    () => filteredAssets.filter((asset) => normalizeInfrastructureType(asset.type) === 'road'),
     [filteredAssets]
   );
   const mappedRoadAssets = useMemo(() => filterMappedRoads(roadRecordAssets), [roadRecordAssets]);
@@ -492,14 +510,14 @@ export default function MapPage() {
   // Layer 2: Schools
   const schoolAssets = useMemo(() => {
     if (!layers.schools) return [];
-    return filteredAssets.filter((a) => a.type.toLowerCase() === 'school');
+    return filteredAssets.filter((a) => normalizeInfrastructureType(a.type) === 'school');
   }, [filteredAssets, layers.schools]);
 
   // Layer 3: Other Infrastructure
   const otherAssets = useMemo(() => {
     if (!layers.otherInfra) return [];
     return filteredAssets.filter(
-      (a) => a.type.toLowerCase() !== 'road' && a.type.toLowerCase() !== 'school'
+      (a) => normalizeInfrastructureType(a.type) !== 'road' && normalizeInfrastructureType(a.type) !== 'school'
     );
   }, [filteredAssets, layers.otherInfra]);
 
@@ -777,6 +795,11 @@ export default function MapPage() {
                 </select>
               </div>}
             </div>
+            {isSyntheticDemoPanchayat && (
+              <div role="note" className="rounded-lg border border-indigo-300 bg-indigo-50 px-2.5 py-2 text-[11px] text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
+                <strong>Synthetic demonstration scenario.</strong> Marker and road locations are generated for local preview; they are not verified facility locations or an official Panchayat boundary and must not be used for real-world decisions.
+              </div>
+            )}
           </div>
 
           {/* 2. Supported Layer Toggles (The 8 Layers) */}
@@ -1251,6 +1274,7 @@ export default function MapPage() {
           {roadAssets.map((road) => {
             const rawCoords = getRoadLineCoordinates(road);
             if (!rawCoords) return null;
+            const verifiedLocation = hasVerifiedSpatialProvenance(road);
             const latLngs: [number, number][] = rawCoords.map(([lng, lat]) => [lat, lng]);
 
             const color =
@@ -1274,7 +1298,8 @@ export default function MapPage() {
                 pathOptions={{
                   color,
                   weight,
-                  opacity: 0.85,
+                  opacity: verifiedLocation ? 0.9 : 0.55,
+                  ...(verifiedLocation ? {} : { dashArray: '7 6' }),
                 }}
                 eventHandlers={{
                   click: () => setInspectedAsset(road),
@@ -1294,17 +1319,18 @@ export default function MapPage() {
 
                     <div className="space-y-1 text-slate-600 text-[11px]">
                       <div>
-                        Type: <strong className="text-slate-800">Road ({road.trafficLevel || 'Standard'} Traffic)</strong>
+                        Type: <strong className="text-slate-800">Road ({road.trafficLevel || 'Traffic unavailable'})</strong>
                       </div>
+                      <div>Location provenance: <strong className={verifiedLocation ? 'text-emerald-700' : 'text-amber-700'}>{verifiedLocation ? 'Verified field-survey location' : isSyntheticDemoPanchayat ? 'Synthetic DEMO_ONLY geometry — preview use only; not field verified' : 'Unverified — excluded from spatial analysis and routing'}</strong></div>
                       <div>
-                        Condition: <strong className="text-slate-800">{road.condition}</strong>
+                        Condition: <strong className="text-slate-800">{road.condition ?? 'Unavailable'}</strong>
                       </div>
                       <div>
                         Priority Score:{' '}
                         <strong className="text-blue-700">{road.priorityScore == null ? 'Unavailable' : `${road.priorityScore.toFixed(1)} / 100`}</strong>
                       </div>
                       <div>
-                        Complaints: <strong className="text-slate-800">{road.complaintsCount} active</strong>
+                        Complaints: <strong className="text-slate-800">{road.complaintsCount == null ? 'Unavailable' : `${road.complaintsCount} active`}</strong>
                       </div>
                       <div>
                         Population Served:{' '}
@@ -1321,8 +1347,9 @@ export default function MapPage() {
                       <div>
                         Estimated Repair Cost:{' '}
                         <strong className="text-emerald-700">
-                          ₹{' '}
-                          {(road.estimatedRepairCost || road.estimatedMaintenanceCost || 0).toLocaleString()}
+                          {(road.estimatedRepairCost ?? road.estimatedMaintenanceCost) == null
+                            ? 'Unavailable'
+                            : `₹ ${(road.estimatedRepairCost ?? road.estimatedMaintenanceCost)!.toLocaleString()}`}
                         </strong>
                       </div>
                     </div>
@@ -1354,6 +1381,7 @@ export default function MapPage() {
           {schoolAssets.map((school) => {
             const position = toFacilityMarkerPosition(school.location);
             if (!position) return null;
+            const verifiedLocation = hasVerifiedSpatialProvenance(school);
 
             const isHighlighted = layers.priorityHighlight && (school.priorityLevel === 'Critical' || school.priorityLevel === 'High');
 
@@ -1361,6 +1389,7 @@ export default function MapPage() {
               <Marker
                 key={school._id}
                 position={position}
+                opacity={verifiedLocation ? 1 : 0.55}
                 icon={createInfraIcon(school.type, school.priorityLevel, isHighlighted)}
                 eventHandlers={{
                   click: () => setInspectedAsset(school),
@@ -1382,8 +1411,9 @@ export default function MapPage() {
                       <div>
                         Type: <strong className="text-slate-800">School</strong>
                       </div>
+                      <div>Location provenance: <strong className={verifiedLocation ? 'text-emerald-700' : 'text-amber-700'}>{verifiedLocation ? 'Verified field-survey location' : isSyntheticDemoPanchayat ? 'Synthetic DEMO_ONLY point — preview use only; not field verified' : 'Unverified — excluded from spatial analysis and routing'}</strong></div>
                       <div>
-                        Condition: <strong className="text-slate-800">{school.condition}</strong>
+                        Condition: <strong className="text-slate-800">{school.condition ?? 'Unavailable'}</strong>
                       </div>
                       <div>
                         Students Enrolled:{' '}
@@ -1394,7 +1424,7 @@ export default function MapPage() {
                         <strong className="text-blue-700">{school.priorityScore == null ? 'Unavailable' : `${school.priorityScore.toFixed(1)} / 100`}</strong>
                       </div>
                       <div>
-                        Complaints: <strong className="text-slate-800">{school.complaintsCount}</strong>
+                        Complaints: <strong className="text-slate-800">{school.complaintsCount ?? 'Unavailable'}</strong>
                       </div>
                       <div>
                         Population Served:{' '}
@@ -1404,7 +1434,7 @@ export default function MapPage() {
                         Estimated Cost:{' '}
                         <strong className="text-emerald-700">
                           ₹{' '}
-                          {(school.estimatedRepairCost || school.estimatedMaintenanceCost || 0).toLocaleString()}
+                          {(school.estimatedRepairCost ?? school.estimatedMaintenanceCost) == null ? 'Unavailable' : `₹ ${(school.estimatedRepairCost ?? school.estimatedMaintenanceCost)!.toLocaleString()}`}
                         </strong>
                       </div>
                     </div>
@@ -1428,6 +1458,7 @@ export default function MapPage() {
           {otherAssets.map((asset) => {
             const position = toFacilityMarkerPosition(asset.location);
             if (!position) return null;
+            const verifiedLocation = hasVerifiedSpatialProvenance(asset);
 
             const isHighlighted = layers.priorityHighlight && (asset.priorityLevel === 'Critical' || asset.priorityLevel === 'High');
 
@@ -1435,6 +1466,7 @@ export default function MapPage() {
               <Marker
                 key={asset._id}
                 position={position}
+                opacity={verifiedLocation ? 1 : 0.55}
                 icon={createInfraIcon(asset.type, asset.priorityLevel, isHighlighted)}
                 eventHandlers={{
                   click: () => setInspectedAsset(asset),
@@ -1454,17 +1486,18 @@ export default function MapPage() {
 
                     <div className="space-y-1 text-slate-600 text-[11px]">
                       <div>
-                        Type: <strong className="text-slate-800">{asset.type}</strong>
+                        Type: <strong className="text-slate-800">{normalizeInfrastructureType(asset.type) ? asset.type : 'Unclassified'}</strong>
                       </div>
+                      <div>Location provenance: <strong className={verifiedLocation ? 'text-emerald-700' : 'text-amber-700'}>{verifiedLocation ? 'Verified field-survey location' : isSyntheticDemoPanchayat ? 'Synthetic DEMO_ONLY point — preview use only; not field verified' : 'Unverified — excluded from spatial analysis and routing'}</strong></div>
                       <div>
-                        Condition: <strong className="text-slate-800">{asset.condition}</strong>
+                        Condition: <strong className="text-slate-800">{asset.condition ?? 'Unavailable'}</strong>
                       </div>
                       <div>
                         Priority Score:{' '}
                         <strong className="text-blue-700">{asset.priorityScore == null ? 'Unavailable' : `${asset.priorityScore.toFixed(1)} / 100`}</strong>
                       </div>
                       <div>
-                        Complaints: <strong className="text-slate-800">{asset.complaintsCount}</strong>
+                        Complaints: <strong className="text-slate-800">{asset.complaintsCount ?? 'Unavailable'}</strong>
                       </div>
                       <div>
                         Population Served:{' '}
@@ -1474,7 +1507,7 @@ export default function MapPage() {
                         Estimated Cost:{' '}
                         <strong className="text-emerald-700">
                           ₹{' '}
-                          {(asset.estimatedRepairCost || asset.estimatedMaintenanceCost || 0).toLocaleString()}
+                          {(asset.estimatedRepairCost ?? asset.estimatedMaintenanceCost) == null ? 'Unavailable' : `₹ ${(asset.estimatedRepairCost ?? asset.estimatedMaintenanceCost)!.toLocaleString()}`}
                         </strong>
                       </div>
                     </div>
@@ -1659,7 +1692,7 @@ export default function MapPage() {
             <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
               <div className="space-y-0.5">
                 <span className="text-[10px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-                  {inspectedAsset.type} Infrastructure
+                  {normalizeInfrastructureType(inspectedAsset.type) ? inspectedAsset.type : 'Unclassified'} Infrastructure
                 </span>
                 <h3 className="text-base font-black text-slate-900 dark:text-white leading-snug">
                   {inspectedAsset.name}

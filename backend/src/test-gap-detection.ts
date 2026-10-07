@@ -173,6 +173,9 @@ async function runGapDetectionTests() {
       ward: 'Ward 1',
       village: 'Central Village',
       location: { type: 'Point', coordinates: [77.7500, 12.9500] },
+      coordinatesVerified: true,
+      coordinateSource: 'FIELD_SURVEY',
+      coordinateStatus: 'VERIFIED',
       condition: 'Good',
       status: 'Operational'
     });
@@ -191,7 +194,10 @@ async function runGapDetectionTests() {
           [77.7480, 12.9480],
           [77.7520, 12.9520]
         ]
-      }
+      },
+      coordinatesVerified: true,
+      coordinateSource: 'FIELD_SURVEY',
+      coordinateStatus: 'VERIFIED'
     });
 
     // Run Gap Detection with 3.0 km school threshold
@@ -233,16 +239,40 @@ async function runGapDetectionTests() {
     console.log('✓ Threshold is fully configurable (increasing to 10km clears gap as expected).');
 
     await Promise.all([School.deleteMany({}), Road.deleteMany({})]);
+    await School.create({
+      panchayatId: testPanchayat._id,
+      name: 'Approximate source school',
+      type: 'School',
+      location: { type: 'Point', coordinates: [77.7501, 12.9501] },
+      coordinatesVerified: false,
+      coordinateSource: 'PUBLIC_MAP_APPROXIMATE',
+      coordinateStatus: 'APPROXIMATE'
+    });
+    await Road.create({
+      panchayatId: testPanchayat._id,
+      name: 'Unverified mapped road',
+      type: 'Road',
+      lineGeometry: { type: 'LineString', coordinates: [[77.748, 12.948], [77.752, 12.952]] },
+      coordinatesVerified: false,
+      coordinateSource: 'PUBLIC_MAP_APPROXIMATE',
+      coordinateStatus: 'APPROXIMATE'
+    });
+    const approximateOnly = await GapDetectionService.detectUnderservedAreas({ panchayatId: String(testPanchayat._id), computeNetworkDistance: false, gridResolutionKm: 1.5 });
+    const approximateGap = approximateOnly.underservedAreas.find((area) => area.areaType === 'Habitation' && area.name === 'Remote Hamlet (Underserved)');
+    if (!approximateGap || approximateGap.nearestSchool || approximateGap.nearestRoad || approximateGap.schoolDistanceToThresholdRatio !== null || approximateGap.roadDistanceToThresholdRatio !== null || approximateGap.distanceToThresholdRatio !== null) {
+      throw new Error('Unverified school/road geometry must not create a distance or numeric ratio.');
+    }
+    await Promise.all([School.deleteMany({}), Road.deleteMany({})]);
     const noFacilities = await GapDetectionService.detectUnderservedAreas({ panchayatId: String(testPanchayat._id), computeNetworkDistance: false, gridResolutionKm: 1.5 });
     const noFacilityHab = noFacilities.underservedAreas.find((area) => area.areaType === 'Habitation' && area.name === 'Remote Hamlet (Underserved)');
     if (!noFacilityHab || noFacilityHab.overallSeverity !== 'Critical' || noFacilityHab.schoolCoverageStatus !== 'NO_FACILITY' || noFacilityHab.roadCoverageStatus !== 'NO_FACILITY' || noFacilityHab.distanceToThresholdRatio !== null || noFacilityHab.severityBasis !== 'MISSING_FACILITY_DISTANCE') {
       throw new Error('Missing schools and roads must retain explicit Critical no-facility status without a fabricated numeric ratio.');
     }
-    await Road.create({ panchayatId: testPanchayat._id, name: 'Coverage road', ward: 'Ward 1', lineGeometry: { type: 'LineString', coordinates: [[77.748, 12.948], [77.752, 12.952]] } });
+    await Road.create({ panchayatId: testPanchayat._id, name: 'Coverage road', ward: 'Ward 1', lineGeometry: { type: 'LineString', coordinates: [[77.748, 12.948], [77.752, 12.952]] }, coordinatesVerified: true, coordinateSource: 'FIELD_SURVEY', coordinateStatus: 'VERIFIED' });
     const noSchool = await GapDetectionService.detectUnderservedAreas({ panchayatId: String(testPanchayat._id), computeNetworkDistance: false, gridResolutionKm: 1.5 });
     if (noSchool.underservedAreas.find(a => a.name === 'Central Village (Served)')?.schoolCoverageStatus !== 'NO_FACILITY') throw new Error('No-schools case must expose NO_FACILITY for school coverage.');
     await Road.deleteMany({});
-    await School.create({ panchayatId: testPanchayat._id, name: 'Coverage school', ward: 'Ward 1', location: { type: 'Point', coordinates: [77.75, 12.95] } });
+    await School.create({ panchayatId: testPanchayat._id, name: 'Coverage school', ward: 'Ward 1', location: { type: 'Point', coordinates: [77.75, 12.95] }, coordinatesVerified: true, coordinateSource: 'FIELD_SURVEY', coordinateStatus: 'VERIFIED' });
     const noRoad = await GapDetectionService.detectUnderservedAreas({ panchayatId: String(testPanchayat._id), computeNetworkDistance: false, gridResolutionKm: 1.5 });
     if (noRoad.underservedAreas.find(a => a.name === 'Central Village (Served)')?.roadCoverageStatus !== 'NO_FACILITY') throw new Error('No-roads case must expose NO_FACILITY for road coverage.');
     const noInputGrid = SpatialUtils.generateSpatialGrid({ minLat: 12.9, maxLat: 12.9, minLng: 77.7, maxLng: 77.7 }, 0.8);

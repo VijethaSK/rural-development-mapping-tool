@@ -55,6 +55,7 @@ async function runGisMapLayersTest() {
       panchayatId: panchayat._id,
       name: 'Varthur Main Road',
       type: 'Road',
+      dataOrigin: 'LEGACY_DEMO',
       ward: 'Ward 1',
       condition: 'Poor',
       status: 'Needs_Repair',
@@ -66,6 +67,9 @@ async function runGisMapLayersTest() {
       roadType: 'MajorDistrict',
       estimatedRepairCost: 450000,
       location: { type: 'Point', coordinates: [77.7479, 12.9489] },
+      coordinatesVerified: true,
+      coordinateSource: 'FIELD_SURVEY',
+      coordinateStatus: 'VERIFIED',
       lineGeometry: {
         type: 'LineString',
         coordinates: [
@@ -82,6 +86,7 @@ async function runGisMapLayersTest() {
       panchayatId: panchayat._id,
       name: 'Govt Higher Primary School Varthur',
       type: 'School',
+      dataOrigin: 'LEGACY_DEMO',
       ward: 'Ward 1',
       condition: 'Average',
       status: 'Operational',
@@ -90,6 +95,9 @@ async function runGisMapLayersTest() {
       studentCount: 420,
       estimatedMaintenanceCost: 180000,
       location: { type: 'Point', coordinates: [77.7495, 12.951] },
+      coordinatesVerified: true,
+      coordinateSource: 'FIELD_SURVEY',
+      coordinateStatus: 'VERIFIED',
       accessibility: {
         roadAccess: true,
         allWeatherAccessible: true,

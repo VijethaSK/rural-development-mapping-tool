@@ -12,6 +12,8 @@
     "test:source-importer": "node --test src/scripts/import-source-excel.test.mjs",
     "typecheck": "tsc --noEmit",
     "seed": "ts-node-dev --transpile-only --esm src/seed/seed-run.ts",
+    "demo:gap-analysis": "npm run build && node dist/scripts/gap-analysis-demo-preview.js",
+    "test:gap-analysis-demo": "node --loader ts-node/esm src/test-gap-analysis-demo.ts",
     "test:models": "node --loader ts-node/esm src/test-models.ts",
     "test:authorization": "tsc && node dist/test-authorization-api.js",
     "test:lifecycle": "tsc && node dist/test-lifecycle-canonical.js",

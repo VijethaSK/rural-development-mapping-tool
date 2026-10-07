@@ -22,10 +22,22 @@ interface MapBootstrapGuard {
 interface MapCenterPanchayat {
   _id?: string;
   centerCoord?: { lat: number; lng: number } | null;
+  coordinatesVerified?: boolean;
+  coordinateStatus?: string;
+  coordinateSource?: string | null;
+  dataOrigin?: string;
+  isSynthetic?: boolean;
+  source?: string;
 }
 
 interface MapCenterAsset {
   panchayatId?: string;
+  coordinatesVerified?: boolean;
+  coordinateStatus?: string;
+  coordinateSource?: string | null;
+  dataOrigin?: string;
+  isSynthetic?: boolean;
+  source?: string;
   location?: {
     coordinates?: unknown;
     lat?: unknown;

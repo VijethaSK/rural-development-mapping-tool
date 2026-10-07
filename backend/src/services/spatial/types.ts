@@ -95,6 +95,8 @@ export interface GapAnalysisOptions {
   roadThresholdKm?: number; // default 1.0 km (configurable by admin)
   gridResolutionKm?: number; // default 0.8 km
   computeNetworkDistance?: boolean; // run Dijkstra for network comparison
+  /** Internal opt-in used only by the isolated synthetic preview process. */
+  includeSyntheticDemo?: boolean;
 }
 
 export interface GapAnalysisResult {
@@ -102,6 +104,10 @@ export interface GapAnalysisResult {
   spatialAnalysisUnavailableReason?: string;
   metrics: AccessibilityMetrics;
   underservedAreas: UnderservedArea[];
+  /** Present only when explicitly tagged synthetic preview facilities are included. */
+  demonstrationGridCells?: UnderservedArea[];
+  /** True only when the analysis includes the isolated synthetic coverage fixture. */
+  syntheticDemonstration?: boolean;
   schoolBuffers: SchoolBufferZone[];
   configuredThresholds: {
     schoolMaxDistanceKm: number;

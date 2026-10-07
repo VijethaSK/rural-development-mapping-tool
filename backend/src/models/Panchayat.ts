@@ -11,6 +11,11 @@ export interface VillageHabitation {
   ward: string;
   population?: number | null;
   location: GeoPoint;
+  dataOrigin?: 'SYNTHETIC_DEMO';
+  coordinatesVerified?: boolean;
+  coordinateSource?: 'SYNTHETIC';
+  coordinateStatus?: 'DEMO_ONLY';
+  isSynthetic?: boolean;
 }
 
 export interface PanchayatDoc extends Document {
@@ -22,12 +27,17 @@ export interface PanchayatDoc extends Document {
   numberOfVillages?: number;
   administrativeNote?: string;
   source?: string;
-  dataOrigin?: 'SOURCE_EXCEL' | 'LEGACY_DEMO' | 'DEMO';
+  dataOrigin?: 'SOURCE_EXCEL' | 'LEGACY_DEMO' | 'DEMO' | 'SYNTHETIC_DEMO';
+  lgdCode?: string;
   sourceWorkbook?: string;
   sourceWorksheet?: string;
   sourceRow?: number;
   sourceKey?: string;
   isSynthetic?: boolean;
+  coordinatesVerified?: boolean;
+  coordinateSource?: 'SOURCE_EXCEL' | 'FIELD_SURVEY' | 'UNAVAILABLE' | 'PUBLIC_MAP_APPROXIMATE' | 'SYNTHETIC' | null;
+  coordinateStatus?: 'VERIFIED' | 'APPROXIMATE' | 'UNVERIFIED' | 'DEMO_ONLY';
+  sourceData?: Record<string, unknown>;
   wards: string[];
   contactPhone?: string;
   contactEmail?: string;
@@ -45,7 +55,12 @@ const VillageHabitationSchema = new Schema<VillageHabitation>(
     // No default: missing population must remain distinguishable from an explicit zero.
     // Historical zero values may still be ambiguous because this field previously defaulted to zero.
     population: { type: Number, min: 0 },
-    location: { type: GeoPointSchema, required: true }
+    location: { type: GeoPointSchema, required: true },
+    dataOrigin: { type: String, enum: ['SYNTHETIC_DEMO'] },
+    coordinatesVerified: { type: Boolean },
+    coordinateSource: { type: String, enum: ['SYNTHETIC'] },
+    coordinateStatus: { type: String, enum: ['DEMO_ONLY'] },
+    isSynthetic: { type: Boolean }
   },
   { _id: false }
 );
@@ -60,12 +75,17 @@ const PanchayatSchema = new Schema<PanchayatDoc>(
     numberOfVillages: { type: Number, min: 0 },
     administrativeNote: { type: String, trim: true },
     source: { type: String, trim: true },
-    dataOrigin: { type: String, enum: ['SOURCE_EXCEL', 'LEGACY_DEMO', 'DEMO'] },
+    dataOrigin: { type: String, enum: ['SOURCE_EXCEL', 'LEGACY_DEMO', 'DEMO', 'SYNTHETIC_DEMO'] },
+    lgdCode: { type: String, trim: true },
     sourceWorkbook: { type: String, trim: true },
     sourceWorksheet: { type: String, trim: true },
     sourceRow: { type: Number, min: 1 },
     sourceKey: { type: String, trim: true },
     isSynthetic: { type: Boolean, default: false },
+    coordinatesVerified: { type: Boolean, default: false },
+    coordinateSource: { type: String, enum: ['SOURCE_EXCEL', 'FIELD_SURVEY', 'UNAVAILABLE', 'PUBLIC_MAP_APPROXIMATE', 'SYNTHETIC', null] },
+    coordinateStatus: { type: String, enum: ['VERIFIED', 'APPROXIMATE', 'UNVERIFIED', 'DEMO_ONLY'] },
+    sourceData: { type: Schema.Types.Mixed },
     wards: { type: [String], default: [] },
     contactPhone: { type: String, trim: true },
     contactEmail: { type: String, trim: true },
