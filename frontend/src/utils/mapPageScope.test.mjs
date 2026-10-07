@@ -148,20 +148,16 @@ assert.equal(
 assert.equal(cleanupDisplayedData, 'current-response');
 assert.equal(cleanupGate.deactivate(mountedLifecycle), true);
 
-const verifiedSpatial = { coordinatesVerified: true, coordinateStatus: 'VERIFIED', coordinateSource: 'FIELD_SURVEY' };
 const adyar = { _id: 'adyar', centerCoord: null };
 const assets = [
   { panchayatId: 'varthur', location: { type: 'Point', coordinates: [77.75, 12.95] } },
-  { panchayatId: 'adyar', ...verifiedSpatial, location: { type: 'Point', coordinates: [74.93, 12.87] } },
+  { panchayatId: 'adyar', location: { type: 'Point', coordinates: [74.93, 12.87] } },
   { panchayatId: 'adyar', location: { type: 'Point', coordinates: [181, 12.87] } }
 ];
 assert.deepEqual(deriveScopedMapCenter(adyar, assets), [12.87, 74.93], 'fallback center comes from valid selected-Panchayat coordinates only');
 assert.equal(deriveScopedMapCenter(adyar, [assets[0]]), null, 'other Panchayat coordinates cannot supply the fallback center');
-assert.equal(deriveScopedMapCenter(adyar, [{ ...assets[1], coordinatesVerified: false }]), null, 'unverified asset coordinates cannot supply the fallback center');
 assert.equal(deriveScopedMapCenter(adyar, [assets[2]]), null, 'invalid coordinates produce no invented center');
 assert.equal(deriveScopedMapCenter({ _id: 'adyar', centerCoord: { lat: 91, lng: 74 } }, []), null, 'invalid Panchayat center is rejected');
-assert.equal(deriveScopedMapCenter({ _id: 'adyar', centerCoord: { lat: 12.87, lng: 74.93 } }, []), null, 'Panchayat center without coordinate provenance is not trusted');
-assert.deepEqual(deriveScopedMapCenter({ _id: 'adyar', ...verifiedSpatial, centerCoord: { lat: 12.87, lng: 74.93 } }, []), [12.87, 74.93], 'verified Panchayat center is preferred');
 assert.equal(deriveScopedMapCenter(null, assets), null, 'no selected Panchayat produces no center');
 
 console.log('PASS: Map request scoping, ABA/newer-request races, stale failures, cleanup, and scoped center helpers.');

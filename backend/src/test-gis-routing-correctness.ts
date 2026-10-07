@@ -58,27 +58,16 @@ const sourcePointOnlyGraph = new RoadGraph();
 sourcePointOnlyGraph.addRoads(sourcePointOnlyRoads);
 assert.equal(sourcePointOnlyGraph.nodeCount, 0, 'Point-only source road contributes no routing nodes or edges');
 
-const verifiedRoads = roadDocumentsToLineInputs([{
-  _id: 'verified-road',
-  name: 'Verified surveyed road',
+const demoRoads = roadDocumentsToLineInputs([{
+  _id: 'demo-road',
+  name: 'Kerehalli Santhe Main Road',
   lineGeometry: { type: 'LineString', coordinates: [[75.5, 13.9], [75.51, 13.9], [75.52, 13.9]] },
-  geometry: { type: 'LineString', coordinates: [[75.5, 13.9], [75.51, 13.9], [75.52, 13.9]] },
-  coordinatesVerified: true,
-  coordinateSource: 'FIELD_SURVEY',
-  coordinateStatus: 'VERIFIED'
+  geometry: { type: 'LineString', coordinates: [[75.5, 13.9], [75.51, 13.9], [75.52, 13.9]] }
 }]);
-assert.equal(verifiedRoads.length, 1, 'a trusted verified LineString remains eligible for the routing graph');
+assert.equal(demoRoads.length, 1, 'a stored demo LineString remains eligible for the routing graph');
 const demoRoadGraph = new RoadGraph();
-demoRoadGraph.addRoads(verifiedRoads);
-assert.ok(demoRoadGraph.nodeCount >= 2, 'verified road LineString creates a routable graph');
-const unverifiedLine = roadDocumentsToLineInputs([{
-  _id: 'approximate-road-line',
-  lineGeometry: { type: 'LineString', coordinates: [[75.5, 13.9], [75.51, 13.9]] },
-  coordinatesVerified: false,
-  coordinateSource: 'PUBLIC_MAP_APPROXIMATE',
-  coordinateStatus: 'APPROXIMATE'
-}]);
-assert.equal(unverifiedLine.length, 0, 'valid-looking approximate LineString is excluded from the graph');
+demoRoadGraph.addRoads(demoRoads);
+assert.ok(demoRoadGraph.nodeCount >= 2, 'demo road LineString still creates a routable graph');
 
 const providerGraph = new RoadGraph();
 providerGraph.addRoad({ coordinates: [[77.6, 12.9], [77.61, 12.9]] });

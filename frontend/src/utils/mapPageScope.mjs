@@ -1,5 +1,3 @@
-import { hasVerifiedSpatialProvenance } from './spatialProvenance.mjs';
-
 function normalizePanchayatId(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -85,7 +83,6 @@ function isValidLatLng(lat, lng) {
 }
 
 function getAssetCenter(asset) {
-  if (!hasVerifiedSpatialProvenance(asset)) return null;
   const coordinates = asset?.location?.coordinates;
   if (Array.isArray(coordinates) && coordinates.length === 2 && isValidLatLng(coordinates[1], coordinates[0])) {
     return [coordinates[1], coordinates[0]];
@@ -102,9 +99,7 @@ export function deriveScopedMapCenter(panchayat, assets) {
   if (!panchayatId) return null;
 
   const center = panchayat.centerCoord;
-  if (hasVerifiedSpatialProvenance(panchayat) && center && isValidLatLng(center.lat, center.lng)) {
-    return [center.lat, center.lng];
-  }
+  if (center && isValidLatLng(center.lat, center.lng)) return [center.lat, center.lng];
 
   for (const asset of assets) {
     if (String(asset?.panchayatId ?? '') !== panchayatId) continue;

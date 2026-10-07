@@ -10,16 +10,14 @@ export type InfrastructureStatus =
   | 'Under_Maintenance'
   | 'Under_Repair'
   | 'Decommissioned';
-export type InfrastructureDataOrigin = 'SOURCE_EXCEL' | 'LEGACY_DEMO' | 'DEMO' | 'OTHER' | 'SYNTHETIC_DEMO';
+export type InfrastructureDataOrigin = 'SOURCE_EXCEL' | 'LEGACY_DEMO' | 'DEMO' | 'OTHER';
 export type InfrastructureCoordinateSource =
   | 'SOURCE_EXCEL'
   | 'FIELD_SURVEY'
   | 'UNAVAILABLE'
   | 'PUBLIC_MAP_APPROXIMATE'
-  | 'SYNTHETIC'
   | null;
-export type InfrastructureCoordinateStatus = 'VERIFIED' | 'APPROXIMATE' | 'UNVERIFIED' | 'DEMO_ONLY';
-export type SyntheticDemoRole = 'WORKBOOK_IDENTITY' | 'MAP_ROAD' | 'ROUTE_STOP' | 'GAP_ANALYSIS_FACILITY' | 'GAP_ANALYSIS_ROAD';
+export type InfrastructureCoordinateStatus = 'VERIFIED' | 'APPROXIMATE' | 'UNVERIFIED';
 
 export interface InfrastructureDoc extends Document {
   panchayatId: mongoose.Types.ObjectId;
@@ -38,7 +36,6 @@ export interface InfrastructureDoc extends Document {
   estimatedMaintenanceCost?: number | null;
   dataOrigin?: InfrastructureDataOrigin;
   isSynthetic?: boolean;
-  syntheticDemoRoles?: SyntheticDemoRole[];
   sourceKey?: string;
   sourceWorkbook?: string;
   sourceWorksheet?: string;
@@ -158,9 +155,8 @@ const InfrastructureSchema = new Schema<InfrastructureDoc>(
     lastMaintenanceDate: { type: Date },
     priorityScore: { type: Number, default: 0, index: true },
     estimatedMaintenanceCost: { type: Number, default: 0 },
-    dataOrigin: { type: String, enum: ['SOURCE_EXCEL', 'LEGACY_DEMO', 'DEMO', 'OTHER', 'SYNTHETIC_DEMO'], index: true },
+    dataOrigin: { type: String, enum: ['SOURCE_EXCEL', 'LEGACY_DEMO', 'DEMO', 'OTHER'], index: true },
     isSynthetic: { type: Boolean, default: false, index: true },
-    syntheticDemoRoles: { type: [String], enum: ['WORKBOOK_IDENTITY', 'MAP_ROAD', 'ROUTE_STOP', 'GAP_ANALYSIS_FACILITY', 'GAP_ANALYSIS_ROAD'], default: [] },
     sourceKey: { type: String, trim: true },
     sourceWorkbook: { type: String, trim: true },
     sourceWorksheet: { type: String, trim: true },
@@ -176,8 +172,8 @@ const InfrastructureSchema = new Schema<InfrastructureDoc>(
     verificationNotes: { type: String },
     verificationRequired: { type: Boolean, default: false, index: true },
     coordinatesVerified: { type: Boolean, default: false },
-    coordinateSource: { type: String, enum: ['SOURCE_EXCEL', 'FIELD_SURVEY', 'UNAVAILABLE', 'PUBLIC_MAP_APPROXIMATE', 'SYNTHETIC', null] },
-    coordinateStatus: { type: String, enum: ['VERIFIED', 'APPROXIMATE', 'UNVERIFIED', 'DEMO_ONLY'] },
+    coordinateSource: { type: String, enum: ['SOURCE_EXCEL', 'FIELD_SURVEY', 'UNAVAILABLE', 'PUBLIC_MAP_APPROXIMATE', null] },
+    coordinateStatus: { type: String, enum: ['VERIFIED', 'APPROXIMATE', 'UNVERIFIED'] },
     priorityScorable: { type: Boolean, default: true },
     missingDataFields: { type: [String], default: [] },
     sourceData: { type: Schema.Types.Mixed }

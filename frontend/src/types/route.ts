@@ -16,9 +16,8 @@ export interface StopCandidate {
   complaintsCount?: number;
   populationServed?: number;
   priorityScore: number;
-  priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low' | 'Unavailable';
+  priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low';
   location: Coordinate;
-  syntheticDemo?: boolean;
 }
 
 export interface OrderedStop {
@@ -28,7 +27,7 @@ export interface OrderedStop {
   type?: string;
   location: Coordinate;
   priorityScore: number;
-  priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low' | 'Unavailable';
+  priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low';
   distanceFromPreviousKm: number;
   durationSeconds: number | null;
   cumulativeDistanceKm: number;

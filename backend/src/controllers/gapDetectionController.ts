@@ -27,8 +27,7 @@ export class GapDetectionController {
         schoolThresholdKm: schoolThresholdKm != null ? Number(schoolThresholdKm) : 3.0,
         roadThresholdKm: roadThresholdKm != null ? Number(roadThresholdKm) : 1.0,
         gridResolutionKm: gridResolutionKm != null ? Number(gridResolutionKm) : 0.8,
-        computeNetworkDistance: computeNetworkDistance ?? true,
-        includeSyntheticDemo: req.app.locals.allowSyntheticGapAnalysisDemo === true
+        computeNetworkDistance: computeNetworkDistance ?? true
       });
 
       res.json({
@@ -59,8 +58,7 @@ export class GapDetectionController {
         schoolThresholdKm: schoolThreshold ? Number(schoolThreshold) : 3.0,
         roadThresholdKm: roadThreshold ? Number(roadThreshold) : 1.0,
         gridResolutionKm: 1.0, // faster resolution for quick overview
-        computeNetworkDistance: false,
-        includeSyntheticDemo: req.app.locals.allowSyntheticGapAnalysisDemo === true
+        computeNetworkDistance: false
       });
 
       res.json({

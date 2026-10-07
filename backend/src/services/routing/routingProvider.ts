@@ -8,13 +8,10 @@ import {
 } from './types.js';
 import { RoadGraph, RoadLineInput } from './graph.js';
 import { DijkstraShortestPath } from './dijkstra.js';
-import { Infrastructure, Road } from '../../models/Infrastructure.js';
+import { Road } from '../../models/Infrastructure.js';
 import { env } from '../../config/env.js';
 import { parseRoutingConfiguration, type RoutingConfiguration } from '../../config/routing.js';
 import { OsrmRoutingProvider } from './osrmRoutingProvider.js';
-import { getExplicitSyntheticDemoPoint, getExplicitSyntheticDemoRoadLineString, getVerifiedRoadLineString, isExplicitSyntheticDemoRecord } from '../spatial/spatialCoordinateEligibility.js';
-import { GAP_ANALYSIS_DEMO_SOURCE } from '../spatial/gapAnalysisDemoProvenance.js';
-import { Panchayat } from '../../models/Panchayat.js';
 
 export interface RoadDocumentForRouting {
   _id?: unknown;
@@ -25,16 +22,38 @@ export interface RoadDocumentForRouting {
   coordinatesVerified?: boolean;
   coordinateSource?: string | null;
   coordinateStatus?: string;
-  dataOrigin?: string;
-  isSynthetic?: boolean;
-  source?: string;
+}
+
+interface ValidRoadLineString {
+  type: 'LineString';
+  coordinates: [number, number][];
+}
+
+function isValidRoadLineString(value: unknown): value is ValidRoadLineString {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as { type?: unknown; coordinates?: unknown };
+  return candidate.type === 'LineString' &&
+    Array.isArray(candidate.coordinates) &&
+    candidate.coordinates.length >= 2 &&
+    candidate.coordinates.every((coordinate) =>
+      Array.isArray(coordinate) &&
+      coordinate.length === 2 &&
+      typeof coordinate[0] === 'number' && Number.isFinite(coordinate[0]) &&
+      coordinate[0] >= -180 && coordinate[0] <= 180 &&
+      typeof coordinate[1] === 'number' && Number.isFinite(coordinate[1]) &&
+      coordinate[1] >= -90 && coordinate[1] <= 90
+    );
 }
 
 /** Point locations are deliberately ignored: only valid stored LineStrings add road edges. */
 export function roadDocumentsToLineInputs(roads: readonly RoadDocumentForRouting[]): RoadLineInput[] {
   const inputs: RoadLineInput[] = [];
   for (const road of roads) {
-    const line = getVerifiedRoadLineString(road);
+    const line = isValidRoadLineString(road.lineGeometry)
+      ? road.lineGeometry
+      : isValidRoadLineString(road.geometry)
+        ? road.geometry
+        : null;
     if (!line) continue;
     inputs.push({
       _id: road._id == null ? undefined : String(road._id),
@@ -224,53 +243,4 @@ export async function getRoutingProvider(
     await provider.loadFromDatabase(panchayatId);
   }
   return provider;
-}
-
-/**
- * Builds an internal road graph only for the isolated demo preview. This path
- * does not change roadDocumentsToLineInputs or the trusted production gate.
- */
-export async function getSyntheticDemoRoutingProvider(panchayatId: string): Promise<IRoutingProvider> {
-  const panchayat: any = await Panchayat.findById(panchayatId).lean();
-  if (!panchayat || panchayat.source !== GAP_ANALYSIS_DEMO_SOURCE || panchayat.dataOrigin !== 'SYNTHETIC_DEMO' ||
-      panchayat.isSynthetic !== true || panchayat.coordinatesVerified !== false ||
-      panchayat.coordinateSource !== 'SYNTHETIC' || panchayat.coordinateStatus !== 'DEMO_ONLY') {
-    throw new Error('Synthetic route preview requires an explicitly marked demonstration Panchayat.');
-  }
-  const roads: any[] = await Road.find({ panchayatId, source: GAP_ANALYSIS_DEMO_SOURCE, syntheticDemoRoles: 'GAP_ANALYSIS_ROAD' }).lean();
-  const lineInputs: RoadLineInput[] = roads.flatMap((road) => {
-    const line = getExplicitSyntheticDemoRoadLineString(road);
-    return isExplicitSyntheticDemoRecord(road) && road.syntheticDemoRoles?.includes('GAP_ANALYSIS_ROAD') && line
-      ? [{ _id: String(road._id), name: road.name, coordinates: line.coordinates }]
-      : [];
-  });
-  if (!lineInputs.length) throw new Error('No synthetic demonstration road geometry is available for route preview.');
-  const graph = new RoadGraph();
-  graph.addRoads(lineInputs);
-  return new DijkstraRoadGraphProvider(graph);
-}
-
-export async function getSyntheticDemoRouteCandidates(panchayatId: string): Promise<Array<Record<string, unknown>>> {
-  const records: any[] = await Infrastructure.find({
-    panchayatId,
-    source: GAP_ANALYSIS_DEMO_SOURCE,
-    syntheticDemoRoles: 'ROUTE_STOP'
-  }).lean();
-  return records.flatMap((record) => {
-    const location = getExplicitSyntheticDemoPoint(record);
-    if (!isExplicitSyntheticDemoRecord(record) || !record.syntheticDemoRoles?.includes('ROUTE_STOP') || !location) return [];
-    return [{
-      _id: String(record._id),
-      panchayatId: String(record.panchayatId),
-      name: record.name,
-      type: record.type,
-      condition: null,
-      complaintsCount: null,
-      populationServed: null,
-      priorityScore: 0,
-      priorityLevel: 'Unavailable',
-      location,
-      syntheticDemo: true
-    }];
-  });
 }

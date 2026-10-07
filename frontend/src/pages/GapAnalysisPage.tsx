@@ -20,7 +20,6 @@ import {
   deriveGapAnalysisMapCenter,
   resolveInitialGapPanchayat,
 } from '../utils/gapAnalysisScope.mjs';
-import { hasSyntheticGapDemonstration, visibleGapCoverageCells } from '../utils/gapAnalysisCoverage.mjs';
 
 interface PanchayatOption {
   _id: string;
@@ -230,11 +229,6 @@ export default function GapAnalysisPage() {
   }, [result, issueFilter, severityFilter]);
 
   const mapCenter = useMemo(() => deriveGapAnalysisMapCenter(result), [result]);
-  const syntheticDemonstration = hasSyntheticGapDemonstration(result);
-  const visibleCoverageCells = useMemo(
-    () => visibleGapCoverageCells(result, issueFilter, severityFilter),
-    [result, issueFilter, severityFilter]
-  );
 
   const getSeverityBadgeClass = (severity: GapSeverity) => {
     switch (severity) {
@@ -452,7 +446,7 @@ export default function GapAnalysisPage() {
                 onChange={(e) => setShowGridPolygons(e.target.checked)}
                 className="accent-red-600 rounded"
               />
-              <span>{syntheticDemonstration ? 'Coverage Sectors' : 'Underserved Polygons'}</span>
+              <span>Underserved Polygons</span>
             </label>
             <label className="flex items-center gap-1 cursor-pointer">
               <input
@@ -549,12 +543,6 @@ export default function GapAnalysisPage() {
 
       {/* Main Grid: GIS Map vs Filters & Priority Table */}
       <div className="space-y-5">
-        {syntheticDemonstration && (
-          <div role="note" className="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
-            <strong>Synthetic demonstration scenario.</strong> Facility locations and road geometry are generated to illustrate distance classification. They are not verified infrastructure locations or an official Panchayat boundary.
-          </div>
-        )}
-
         {/* Interactive Leaflet GIS Map */}
         <div className="relative h-[480px] rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md">
           {mapCenter ? (
@@ -585,7 +573,8 @@ export default function GapAnalysisPage() {
 
             {/* Underserved Spatial Polygons / Grid Cells */}
             {showGridPolygons &&
-              visibleCoverageCells
+              filteredUnderservedAreas
+                .filter((a) => a.areaType === 'GridCell' && a.polygonGeometry)
                 .map((cell) => {
                   const ringCoords = cell.polygonGeometry!.coordinates[0].map(
                     ([lng, lat]) => [lat, lng] as [number, number]
@@ -730,7 +719,7 @@ export default function GapAnalysisPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded bg-emerald-500/40 border border-emerald-600" />
-              <span>{syntheticDemonstration ? 'No Gap / Within Acceptable Threshold (&lt; 1.0x)' : 'No Gap / Within Acceptable Threshold (&lt; 1.0x; not shaded in the underserved layer)'}</span>
+              <span>No Gap / Within Acceptable Threshold (&lt; 1.0x; not shaded in the underserved layer)</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded bg-red-500/50 border border-red-600" />
@@ -783,7 +772,6 @@ export default function GapAnalysisPage() {
                 <option value="Critical">Critical ({criticalGapLegendText})</option>
                 <option value="High">High (1.5x - 2.0x)</option>
                 <option value="Moderate">Moderate (1.0x - 1.5x)</option>
-                {syntheticDemonstration && <option value="Served">Served / Within Threshold (&lt; 1.0x)</option>}
               </select>
             </div>
           </div>

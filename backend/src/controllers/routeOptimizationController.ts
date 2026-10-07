@@ -9,19 +9,6 @@ import mongoose from 'mongoose';
 import { Panchayat } from '../models/Panchayat.js';
 import { assertPanchayatAccess, panchayatFilter, resolvePanchayatScope } from '../middleware/panchayatScope.js';
 import { getRoutingErrorStatusCode } from '../services/routing/routingErrors.js';
-import { getExplicitSyntheticDemoPoint, getVerifiedInfrastructurePoint, getVerifiedSpatialPoint, isExplicitSyntheticDemoRecord } from '../services/spatial/spatialCoordinateEligibility.js';
-import { GAP_ANALYSIS_DEMO_SOURCE } from '../services/spatial/gapAnalysisDemoProvenance.js';
-import { getSyntheticDemoRouteCandidates, getSyntheticDemoRoutingProvider } from '../services/routing/routingProvider.js';
-
-async function getSyntheticPreviewPanchayat(req: Request, panchayatId?: string): Promise<any | null> {
-  if (req.app.locals.allowSyntheticGapAnalysisDemo !== true || !panchayatId) return null;
-  const panchayat: any = await Panchayat.findById(panchayatId).lean();
-  return panchayat?.source === GAP_ANALYSIS_DEMO_SOURCE && panchayat?.dataOrigin === 'SYNTHETIC_DEMO' &&
-    panchayat?.isSynthetic === true && panchayat?.coordinatesVerified === false &&
-    panchayat?.coordinateSource === 'SYNTHETIC' && panchayat?.coordinateStatus === 'DEMO_ONLY'
-    ? panchayat
-    : null;
-}
 
 export class RouteOptimizationController {
   /**
@@ -48,105 +35,119 @@ export class RouteOptimizationController {
         return;
       }
 
-      const syntheticPreviewPanchayat = await getSyntheticPreviewPanchayat(req, scopedPanchayatId);
-
       let candidates: StopCandidate[] = [];
 
       // Auto-select top priority assets if requested or if maintenanceLocations is omitted
       if (autoSelectTop || !maintenanceLocations || maintenanceLocations.length === 0) {
-        if (syntheticPreviewPanchayat) {
-          const demoCandidates = await getSyntheticDemoRouteCandidates(String(syntheticPreviewPanchayat._id));
-          candidates = demoCandidates.map((item: any) => ({
-            infrastructureId: item._id,
-            panchayatId: String(item.panchayatId),
-            infrastructureName: item.name,
-            type: item.type,
-            location: item.location,
-            priorityScore: 0,
-            priorityLevel: 'Unavailable'
-          }));
-        } else {
         const ranked = await PriorityScoringService.getRanked({
           panchayatId: scopedPanchayatId,
           limit: parsedTopCount
         });
 
         candidates = ranked.items
+          .filter((item: any) => {
+            const loc = item.location;
+            if (loc?.coordinates && loc.coordinates.length >= 2) return true;
+            if (loc?.lat != null && loc?.lng != null) return true;
+            if (item.lineGeometry?.coordinates && item.lineGeometry.coordinates.length > 0) return true;
+            return false;
+          })
           .map((item: any) => {
-            const location = getVerifiedInfrastructurePoint(item);
-            return location ? {
+            let lat: number | undefined;
+            let lng: number | undefined;
+            if (item.type === 'Road' && item.lineGeometry?.coordinates?.length) {
+              const coords = item.lineGeometry.coordinates;
+              const mid = coords[Math.floor(coords.length / 2)];
+              lng = mid[0]; lat = mid[1];
+            } else if (item.location?.coordinates) {
+              lng = item.location.coordinates[0];
+              lat = item.location.coordinates[1];
+            } else if (item.location?.lat != null) {
+              lat = item.location.lat;
+              lng = item.location.lng;
+            } else if (item.lineGeometry?.coordinates) {
+              // For road, take midpoint
+              const coords = item.lineGeometry.coordinates;
+              const mid = coords[Math.floor(coords.length / 2)];
+              lng = mid[0];
+              lat = mid[1];
+            }
+
+            return lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) ? {
               infrastructureId: String(item.id || item._id),
               panchayatId: String(item.panchayatId || scopedPanchayatId || ''),
               infrastructureName: item.name,
               type: item.type,
-              location,
+              location: { lat: Number(lat), lng: Number(lng) },
               priorityScore: item.priorityScore,
               priorityLevel: item.priorityLevel
             } : null;
           }).filter((item) => item !== null) as StopCandidate[];
-        }
       } else {
         // Hydrate and populate incoming candidates
         for (const locItem of maintenanceLocations) {
-          let location: { lat: number; lng: number } | null = null;
+          let lat = locItem.location?.lat ?? locItem.lat;
+          let lng = locItem.location?.lng ?? locItem.lng;
           let name = locItem.infrastructureName || locItem.name;
           let score = locItem.priorityScore;
           let level = locItem.priorityLevel;
           let type = locItem.type;
 
-          if (!locItem.infrastructureId) {
-            res.status(400).json({ error: 'Every route stop must reference stored infrastructure with verified coordinate provenance.' });
-            return;
+          // Lookup in DB if details missing
+          if (locItem.infrastructureId) {
+            const infra: any = await Infrastructure.findById(locItem.infrastructureId).lean();
+            if (!infra) { res.status(404).json({ error: 'Infrastructure stop not found.' }); return; }
+            assertPanchayatAccess(req, infra.panchayatId);
+            if (scopedPanchayatId && String(infra.panchayatId) !== scopedPanchayatId) {
+              res.status(403).json({ error: 'All route stops must belong to the selected Panchayat.' }); return;
+            }
+            // Trust stored infrastructure fields and coordinates over caller supplied values.
+            if (infra) {
+              name = infra.name;
+              type = infra.type;
+              score = infra.priorityScore ?? 50;
+              level = infra.priorityLevel ?? 'Medium';
+            if (infra.type === 'Road' && infra.lineGeometry?.coordinates?.length) {
+              const coords = infra.lineGeometry.coordinates;
+              const mid = coords[Math.floor(coords.length / 2)];
+              lng = mid[0]; lat = mid[1];
+            } else if (infra.location?.coordinates) {
+                lng = infra.location.coordinates[0];
+                lat = infra.location.coordinates[1];
+              } else if (infra.lineGeometry?.coordinates?.length) {
+                const coords = infra.lineGeometry.coordinates;
+                const mid = coords[Math.floor(coords.length / 2)];
+                lng = mid[0];
+                lat = mid[1];
+              }
+            }
           }
-          const infra: any = await Infrastructure.findById(locItem.infrastructureId).lean();
-          if (!infra) { res.status(404).json({ error: 'Infrastructure stop not found.' }); return; }
-          assertPanchayatAccess(req, infra.panchayatId);
-          if (scopedPanchayatId && String(infra.panchayatId) !== scopedPanchayatId) {
-            res.status(403).json({ error: 'All route stops must belong to the selected Panchayat.' }); return;
-          }
-          const isDemoStop = syntheticPreviewPanchayat && isExplicitSyntheticDemoRecord(infra) &&
-            infra.syntheticDemoRoles?.includes('ROUTE_STOP');
-          location = isDemoStop ? getExplicitSyntheticDemoPoint(infra) : getVerifiedInfrastructurePoint(infra);
-          if (!location) {
-            res.status(422).json({ error: `Infrastructure stop "${infra.name}" has no verified, trusted spatial coordinates.` });
-            return;
-          }
-          // Stored infrastructure identity, score, and location are authoritative.
-          name = infra.name;
-          type = infra.type;
-          score = infra.priorityScore ?? 50;
-          level = infra.priorityLevel ?? 'Medium';
 
-          if (location) {
+          if (lat != null && lng != null) {
             candidates.push({
-              infrastructureId: String(infra._id),
+              infrastructureId: String(locItem.infrastructureId || `manual-${Date.now()}`),
               infrastructureName: name || 'Infrastructure Stop',
               type: type || 'Facility',
-              location,
-              priorityScore: isDemoStop ? 0 : Number(score ?? 50),
-              priorityLevel: isDemoStop ? 'Unavailable' : level || 'Medium'
+              location: { lat: Number(lat), lng: Number(lng) },
+              priorityScore: Number(score ?? 50),
+              priorityLevel: level || 'Medium'
             });
           }
         }
       }
 
       // Execute provider-backed routing metrics & priority nearest-neighbor + 2-opt ordering.
-      const demoProvider = syntheticPreviewPanchayat
-        ? await getSyntheticDemoRoutingProvider(String(syntheticPreviewPanchayat._id))
-        : undefined;
       const result = await MultiStopOptimizer.optimizeRoute(
         startLocation,
         candidates,
         {
           ...options,
               panchayatId: scopedPanchayatId
-        },
-        demoProvider
+        }
       );
 
       res.json({
         success: true,
-        ...(syntheticPreviewPanchayat ? { syntheticDemo: true, priorityScoresAvailable: false } : {}),
         data: result
       });
     } catch (err: any) {
@@ -211,8 +212,12 @@ export class RouteOptimizationController {
       const safeRouteOptions = routeOptions && typeof routeOptions === 'object' && !Array.isArray(routeOptions) ? routeOptions : {};
       const routeSpeed = Number.isFinite(Number(safeRouteOptions.averageSpeedKmph)) && safeRouteOptions.averageSpeedKmph !== '' ? Number(safeRouteOptions.averageSpeedKmph) : 30;
       const candidates: StopCandidate[] = ownedStops.map((infra: any) => {
-        const location = getVerifiedInfrastructurePoint(infra);
-        if (!location) throw Object.assign(new Error(`Infrastructure ${infra.name} has no verified, trusted spatial coordinates.`), { statusCode: 422 });
+        let location: { lat: number; lng: number } | undefined;
+        const roadCoords = infra.lineGeometry?.coordinates || infra.geometry?.coordinates;
+        if (infra.type === 'Road' && roadCoords?.length) { const point = roadCoords[Math.floor(roadCoords.length / 2)]; location = { lng: Number(point[0]), lat: Number(point[1]) }; }
+        else if (infra.location?.coordinates?.length >= 2) location = { lng: Number(infra.location.coordinates[0]), lat: Number(infra.location.coordinates[1]) };
+        else if (roadCoords?.length) { const point = roadCoords[Math.floor(roadCoords.length / 2)]; location = { lng: Number(point[0]), lat: Number(point[1]) }; }
+        if (!location) throw Object.assign(new Error(`Infrastructure ${infra.name} has no usable location.`), { statusCode: 400 });
         MultiStopOptimizer.validateCoordinate(location, `location for ${infra.name}`);
         return { infrastructureId: String(infra._id), infrastructureName: infra.name, type: infra.type, location, priorityScore: Number(infra.priorityScore ?? 50), priorityLevel: infra.priorityLevel || 'Medium' };
       });
@@ -338,21 +343,6 @@ export class RouteOptimizationController {
       const panchayatId = resolvePanchayatScope(req, requestedPanchayatId);
       const candidateLimit = Number(limit);
       if (!Number.isInteger(candidateLimit) || candidateLimit < 1 || candidateLimit > 50) { res.status(400).json({ error: 'limit must be between 1 and 50.' }); return; }
-      const syntheticPreviewPanchayat = await getSyntheticPreviewPanchayat(req, panchayatId as string | undefined);
-      if (syntheticPreviewPanchayat) {
-        const candidates = (await getSyntheticDemoRouteCandidates(String(syntheticPreviewPanchayat._id))).slice(0, candidateLimit);
-        const startLocation = getExplicitSyntheticDemoPoint(syntheticPreviewPanchayat, syntheticPreviewPanchayat.location || syntheticPreviewPanchayat.centerCoord);
-        res.json({
-          success: true,
-          count: candidates.length,
-          startLocation,
-          panchayatName: syntheticPreviewPanchayat.name,
-          syntheticDemo: true,
-          priorityScoresAvailable: false,
-          data: candidates
-        });
-        return;
-      }
       const ranked = await PriorityScoringService.getRanked({
         panchayatId: panchayatId as string,
         limit: candidateLimit
@@ -361,9 +351,25 @@ export class RouteOptimizationController {
       const candidates = ranked.items
         .filter((item: any) => (minScore ? item.priorityScore >= Number(minScore) : true))
         .map((item: any) => {
-          const location = getVerifiedInfrastructurePoint(item);
+          let lat: number | undefined;
+          let lng: number | undefined;
+          if (item.type === 'Road' && item.lineGeometry?.coordinates?.length) {
+            const coords = item.lineGeometry.coordinates;
+            const mid = coords[Math.floor(coords.length / 2)];
+            lng = mid[0]; lat = mid[1];
+          } else if (item.location?.coordinates) {
+            lng = item.location.coordinates[0];
+            lat = item.location.coordinates[1];
+          } else if (item.location?.lat != null) {
+            lat = item.location.lat;
+            lng = item.location.lng;
+          } else if (item.lineGeometry?.coordinates) {
+            const coords = item.lineGeometry.coordinates;
+            const mid = coords[Math.floor(coords.length / 2)];
+            lng = mid[0];
+            lat = mid[1];
+          }
 
-          if (!location) return null;
           return {
             _id: item.id || item._id,
             panchayatId: item.panchayatId,
@@ -374,19 +380,15 @@ export class RouteOptimizationController {
             populationServed: item.populationServed,
             priorityScore: item.priorityScore,
             priorityLevel: item.priorityLevel,
-            location
+            location: lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null
           };
-        }).filter((item: any) => item !== null);
+        }).filter((item: any) => item.location !== null);
 
-      const panchayat = panchayatId ? await Panchayat.findById(panchayatId)
-        .select('centerCoord location name coordinatesVerified coordinateStatus coordinateSource dataOrigin isSynthetic source').lean() : null;
-      const verifiedCenter = panchayat
-        ? getVerifiedSpatialPoint(panchayat, panchayat.location || panchayat.centerCoord)
-        : null;
+      const panchayat = panchayatId ? await Panchayat.findById(panchayatId).select('centerCoord name').lean() : null;
       res.json({
         success: true,
         count: candidates.length,
-        startLocation: verifiedCenter,
+        startLocation: panchayat?.centerCoord || null,
         panchayatName: panchayat?.name || null,
         data: candidates
       });

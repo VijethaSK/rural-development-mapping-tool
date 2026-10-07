@@ -82,7 +82,7 @@ export interface StopCandidate {
   type?: string;
   location: Coordinate;
   priorityScore: number;
-  priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low' | 'Unavailable';
+  priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low';
 }
 
 export interface OrderedStop {
@@ -92,7 +92,7 @@ export interface OrderedStop {
   type?: string;
   location: Coordinate;
   priorityScore: number;
-  priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low' | 'Unavailable';
+  priorityLevel: 'Critical' | 'High' | 'Medium' | 'Low';
   distanceFromPreviousKm: number;
   durationSeconds: number | null;
   cumulativeDistanceKm: number;

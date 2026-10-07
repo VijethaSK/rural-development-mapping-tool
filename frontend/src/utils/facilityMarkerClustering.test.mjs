@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { toFacilityMarkerPosition } from './facilityMarkerPosition.mjs';
-import { normalizeInfrastructureType } from './mapInfrastructureType.mjs';
 
 const mapPage = await readFile(new URL('../pages/MapPage.tsx', import.meta.url), 'utf8');
 
@@ -15,13 +14,6 @@ test('GeoJSON points convert from [longitude, latitude] without shifting coordin
 
 test('legacy latitude/longitude points remain supported', () => {
   assert.deepEqual(toFacilityMarkerPosition({ lat: 12.9716, lng: 77.5946 }), [12.9716, 77.5946]);
-});
-
-test('missing or non-string infrastructure types remain unclassified', () => {
-  assert.equal(normalizeInfrastructureType(undefined), '');
-  assert.equal(normalizeInfrastructureType(null), '');
-  assert.equal(normalizeInfrastructureType(7), '');
-  assert.equal(normalizeInfrastructureType('  School '), 'school');
 });
 
 test('missing, non-finite, and out-of-range points are not passed to Leaflet', () => {
@@ -65,14 +57,10 @@ test('cluster expansion and spiderfy are enabled while complaints and road polyl
 });
 
 test('facility layer toggles and active asset filters still control cluster membership', () => {
-  assert.match(mapPage, /if \(!layers\.schools\) return \[\];[\s\S]*?filteredAssets\.filter\(\(a\) => normalizeInfrastructureType\(a\.type\) === 'school'\)/);
+  assert.match(mapPage, /if \(!layers\.schools\) return \[\];[\s\S]*?filteredAssets\.filter\(\(a\) => a\.type\.toLowerCase\(\) === 'school'\)/);
   assert.match(mapPage, /if \(!layers\.otherInfra\) return \[\];[\s\S]*?filteredAssets\.filter\(/);
   assert.match(mapPage, /\}, \[filteredAssets, layers\.schools\]\)/);
   assert.match(mapPage, /\}, \[filteredAssets, layers\.otherInfra\]\)/);
-  assert.match(mapPage, /normalizeInfrastructureType\(item\.type\)/);
-  assert.match(mapPage, /normalizeInfrastructureType\(asset\.type\) === 'road'/);
-  assert.match(mapPage, /normalizeInfrastructureType\(asset\.type\) \? asset\.type : 'Unclassified'/);
-  assert.match(mapPage, /let emoji = t \? '🏛️' : '📍'/);
 });
 
 test('Panchayat switching clears the asset source that feeds facility cluster children', () => {

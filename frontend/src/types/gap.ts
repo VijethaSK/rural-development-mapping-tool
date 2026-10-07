@@ -77,9 +77,6 @@ export interface GapAnalysisResult {
   spatialAnalysisUnavailableReason?: string;
   metrics: AccessibilityMetrics;
   underservedAreas: UnderservedArea[];
-  /** Present only for the explicitly tagged synthetic Gap Analysis preview. */
-  demonstrationGridCells?: UnderservedArea[];
-  syntheticDemonstration?: boolean;
   schoolBuffers: SchoolBufferZone[];
   configuredThresholds: {
     schoolMaxDistanceKm: number;

@@ -22,7 +22,7 @@ async function run() {
       User.create({ name: 'Admin A', email: 'route-admin-a@test.invalid', passwordHash: 'test', role: 'admin', panchayatId: pa._id, isActive: true })
     ]);
     const [roadA, roadB] = await Promise.all([
-      Road.create({ panchayatId: pa._id, name: 'Route Road A', ward: 'Ward 1', condition: 'Poor', lineGeometry: { type: 'LineString', coordinates: [[77.7, 12.9], [77.702, 12.9]] }, coordinatesVerified: true, coordinateSource: 'FIELD_SURVEY', coordinateStatus: 'VERIFIED' }),
+      Road.create({ panchayatId: pa._id, name: 'Route Road A', ward: 'Ward 1', condition: 'Poor', lineGeometry: { type: 'LineString', coordinates: [[77.7, 12.9], [77.702, 12.9]] } }),
       Road.create({ panchayatId: pb._id, name: 'Route Road B', ward: 'Ward 1', condition: 'Poor', lineGeometry: { type: 'LineString', coordinates: [[77.8, 13], [77.802, 13]] } })
     ]);
     server = app.listen(0, '127.0.0.1');
@@ -39,10 +39,6 @@ async function run() {
     assert.notEqual(saved.totalDistance, 999999999, 'client-supplied distance is discarded');
     assert.notEqual(saved.totalDistanceKm, 999999, 'client-supplied kilometer metric is discarded');
     assert.equal(saved.fallbackUsed, false);
-
-    const unverifiedRoad = await Road.create({ panchayatId: pa._id, name: 'Unverified Route Road', ward: 'Ward 1', lineGeometry: { type: 'LineString', coordinates: [[77.71, 12.9], [77.712, 12.9]] }, coordinatesVerified: false, coordinateSource: 'PUBLIC_MAP_APPROXIMATE', coordinateStatus: 'APPROXIMATE' });
-    response = await call('/api/routes/save', pdoA, { method: 'POST', body: JSON.stringify(saveBody(String(unverifiedRoad._id), String(pa._id))) });
-    assert.equal(response.status, 422, 'route-save recalculation rejects an unverified stored road even when the caller supplies coordinates');
 
     response = await call('/api/routes/save', adminA, { method: 'POST', body: JSON.stringify(saveBody(String(roadB._id), String(pa._id))) });
     assert.equal(response.status, 403, 'cross-Panchayat infrastructure cannot be saved as a stop');
