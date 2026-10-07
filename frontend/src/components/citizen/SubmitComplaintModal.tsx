@@ -34,6 +34,8 @@ const pinIcon = L.divIcon({
   iconAnchor: [15, 15]
 });
 
+const readableFieldClasses = 'text-slate-900 placeholder:text-slate-500 disabled:bg-slate-100 disabled:text-slate-600 disabled:placeholder:text-slate-500 disabled:opacity-100 [color-scheme:light]';
+
 function MapClickPicker({ onPick }: { onPick: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
@@ -320,10 +322,10 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
                 setVillage(nextSelection.village);
                 setAssetError(null);
               }}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 ${readableFieldClasses}`}
             >
-              <option value="">{panchayatsLoading ? 'Loading Panchayats…' : 'Select a Panchayat'}</option>
-              {panchayats.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+              <option value="" className="bg-white text-slate-500">{panchayatsLoading ? 'Loading Panchayats…' : 'Select a Panchayat'}</option>
+              {panchayats.map((item) => <option key={item._id} value={item._id} className="bg-white text-slate-900">{item.name}</option>)}
             </select>
             <p className="mt-1 text-[11px] text-slate-500">
               {selectedPanchayat
@@ -339,15 +341,15 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as ComplaintCategory)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 ${readableFieldClasses}`}
               >
-                <option value="Road">Road / Pothole / Bridge</option>
-                <option value="School">School / Anganwadi</option>
-                <option value="Water">Drinking Water / Borewell</option>
-                <option value="Healthcare">Health Sub-Center</option>
-                <option value="Sanitation">Sanitation / Drain / Waste</option>
-                <option value="Electricity">Streetlight / Power</option>
-                <option value="Other">Other Community Facility</option>
+                <option value="Road" className="bg-white text-slate-900">Road / Pothole / Bridge</option>
+                <option value="School" className="bg-white text-slate-900">School / Anganwadi</option>
+                <option value="Water" className="bg-white text-slate-900">Drinking Water / Borewell</option>
+                <option value="Healthcare" className="bg-white text-slate-900">Health Sub-Center</option>
+                <option value="Sanitation" className="bg-white text-slate-900">Sanitation / Drain / Waste</option>
+                <option value="Electricity" className="bg-white text-slate-900">Streetlight / Power</option>
+                <option value="Other" className="bg-white text-slate-900">Other Community Facility</option>
               </select>
             </div>
 
@@ -371,11 +373,11 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
                     }
                   }
                 }}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 ${readableFieldClasses}`}
               >
-                <option value="">General Panchayat Area (No specific asset)</option>
+                <option value="" className="bg-white text-slate-900">General Panchayat Area (No specific asset)</option>
                 {infras.map((item) => (
-                  <option key={item._id} value={item._id}>
+                  <option key={item._id} value={item._id} className="bg-white text-slate-900">
                     {item.name} ({item.type || 'Unclassified'}{item.ward ? ` - ${item.ward}` : ''})
                   </option>
                 ))}
@@ -393,7 +395,7 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
               placeholder="e.g. Deep pothole cluster near Varthur market bus stop"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 ${readableFieldClasses}`}
             />
           </div>
 
@@ -405,7 +407,7 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
               placeholder="Describe the severity, damage, safety hazards to children/traffic, and any immediate risks..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 leading-relaxed"
+              className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 leading-relaxed ${readableFieldClasses}`}
             />
           </div>
 
@@ -420,7 +422,7 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
                 list="complaint-ward-options"
                 disabled={!selectedPanchayatId}
                 onChange={(e) => setWard(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 ${readableFieldClasses}`}
               />
               <datalist id="complaint-ward-options">{wardOptions.map((item) => <option key={item} value={item} />)}</datalist>
             </div>
@@ -433,7 +435,7 @@ export function SubmitComplaintModal({ isOpen, onClose, onSubmitted }: Props) {
                 list="complaint-village-options"
                 disabled={!selectedPanchayatId}
                 onChange={(e) => setVillage(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 ${readableFieldClasses}`}
               />
               <datalist id="complaint-village-options">{villageOptions.map((item) => <option key={item} value={item} />)}</datalist>
             </div>
