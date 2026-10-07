@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import {
   candidateRequestPath,
   isFiniteCoordinate,
-  panchayatsVisibleToUser,
   resetRouteSelection,
   routeMethodOverlayLabel,
   resolveRouteOrigin,
@@ -89,14 +88,6 @@ assert.equal(
   `Routing method pending | ${orderingLabel}`,
   'the overlay does not claim a route method before a result exists'
 );
-
-assert.deepEqual(panchayatsVisibleToUser([
-  { _id: 'panchayat-a', name: 'Panchayat A' },
-  { _id: 'panchayat-b', name: 'Panchayat B' }
-], 'panchayat-b').map((item) => item._id), ['panchayat-b']);
-assert.equal(panchayatsVisibleToUser([
-  { _id: 'panchayat-a', name: 'Panchayat A' }
-]).length, 1, 'system-wide users can see all returned Panchayats');
 
 assert.equal(resolveRouteOrigin(null, 'Panchayat A', null), null, 'no Panchayat and no stop must not invent an origin');
 assert.deepEqual(

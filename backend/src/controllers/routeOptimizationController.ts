@@ -7,7 +7,7 @@ import { Route } from '../models/Route.js';
 import { User } from '../models/User.js';
 import mongoose from 'mongoose';
 import { Panchayat } from '../models/Panchayat.js';
-import { assertPanchayatAccess, panchayatFilter, resolvePanchayatScope } from '../middleware/panchayatScope.js';
+import { assertPanchayatAccess, assertPanchayatReadAccess, panchayatFilter, resolvePanchayatReadScope, resolvePanchayatScope } from '../middleware/panchayatScope.js';
 import { getRoutingErrorStatusCode } from '../services/routing/routingErrors.js';
 
 export class RouteOptimizationController {
@@ -25,7 +25,7 @@ export class RouteOptimizationController {
         options = {}
       } = req.body;
 
-      const scopedPanchayatId = resolvePanchayatScope(req, panchayatId);
+      const scopedPanchayatId = resolvePanchayatReadScope(req, panchayatId);
       const parsedTopCount = Number(topCount);
       if (!Number.isInteger(parsedTopCount) || parsedTopCount < 1 || parsedTopCount > 50) { res.status(400).json({ error: 'topCount must be between 1 and 50.' }); return; }
       if (maintenanceLocations != null && (!Array.isArray(maintenanceLocations) || maintenanceLocations.length > 50)) { res.status(400).json({ error: 'maintenanceLocations must contain no more than 50 stops.' }); return; }
@@ -97,7 +97,7 @@ export class RouteOptimizationController {
           if (locItem.infrastructureId) {
             const infra: any = await Infrastructure.findById(locItem.infrastructureId).lean();
             if (!infra) { res.status(404).json({ error: 'Infrastructure stop not found.' }); return; }
-            assertPanchayatAccess(req, infra.panchayatId);
+            assertPanchayatReadAccess(req, infra.panchayatId);
             if (scopedPanchayatId && String(infra.panchayatId) !== scopedPanchayatId) {
               res.status(403).json({ error: 'All route stops must belong to the selected Panchayat.' }); return;
             }
@@ -340,7 +340,7 @@ export class RouteOptimizationController {
   public static async getCandidates(req: Request, res: Response): Promise<void> {
     try {
       const { panchayatId: requestedPanchayatId, limit = 20, minScore = 0 } = req.query;
-      const panchayatId = resolvePanchayatScope(req, requestedPanchayatId);
+      const panchayatId = resolvePanchayatReadScope(req, requestedPanchayatId);
       const candidateLimit = Number(limit);
       if (!Number.isInteger(candidateLimit) || candidateLimit < 1 || candidateLimit > 50) { res.status(400).json({ error: 'limit must be between 1 and 50.' }); return; }
       const ranked = await PriorityScoringService.getRanked({

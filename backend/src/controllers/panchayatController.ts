@@ -4,7 +4,7 @@ import { School } from '../models/School.js';
 import { Road } from '../models/Road.js';
 import { IssueReport } from '../models/IssueReport.js';
 import mongoose from 'mongoose';
-import { denyIfPanchayatOutOfScope, panchayatFilter } from '../middleware/panchayatScope.js';
+import { denyIfPanchayatOutOfScope, denyIfPanchayatReadOutOfScope, panchayatFilter, panchayatReadFilter } from '../middleware/panchayatScope.js';
 
 function connected(): boolean {
   return mongoose.connection.readyState === 1;
@@ -27,7 +27,7 @@ export async function listPanchayats(req: Request, res: Response) {
       centerCoord: { lat: 12.9489, lng: 77.7479 }
     }];
     try {
-      const scope = panchayatFilter(req);
+      const scope = panchayatReadFilter(req);
       res.json(scope.panchayatId ? fallback.filter((item) => item._id === scope.panchayatId) : fallback);
     } catch (err: any) {
       res.status(err.statusCode || 500).json({ error: err.message || 'Failed to list Panchayats' });
@@ -35,7 +35,7 @@ export async function listPanchayats(req: Request, res: Response) {
     return;
   }
   try {
-    const scope = panchayatFilter(req);
+    const scope = panchayatReadFilter(req);
     // Panchayat documents are scoped by their own _id. `panchayatId` is the
     // foreign-key field used on child collections, not on Panchayat records.
     const items = await Panchayat.find(scope.panchayatId ? { _id: scope.panchayatId } : {});
@@ -53,7 +53,7 @@ export async function createPanchayat(req: Request, res: Response) {
 
 export async function listSchools(req: Request, res: Response) {
   const { id } = req.params;
-  if (denyIfPanchayatOutOfScope(req, res, id)) return;
+  if (denyIfPanchayatReadOutOfScope(req, res, id)) return;
   if (!connected()) {
     res.json([
       { _id: 's1', panchayatId: id, name: 'Govt Primary School', type: 'Primary', management: 'Govt', medium: 'Kannada', classesFrom: 1, classesTo: 5, studentCount: 200, staffCount: 8, ward: 'Ward 1', village: 'Varthur', location: { lat: 12.95, lng: 77.75 }, facilities: { toilets: 'Available', drinkingWater: true, playground: true, boundaryWall: false } }
@@ -66,7 +66,7 @@ export async function listSchools(req: Request, res: Response) {
 
 export async function listRoads(req: Request, res: Response) {
   const { id } = req.params;
-  if (denyIfPanchayatOutOfScope(req, res, id)) return;
+  if (denyIfPanchayatReadOutOfScope(req, res, id)) return;
   if (!connected()) {
     res.json([
       { _id: 'r1', panchayatId: id, name: 'Main Road', roadType: 'Panchayat', surfaceType: 'Paved', lengthKm: 2.5, ward: 'Ward 1', connects: ['Market','School'], condition: 'Good', geometry: { type: 'LineString', coordinates: [[77.747,12.948],[77.748,12.949]] } }

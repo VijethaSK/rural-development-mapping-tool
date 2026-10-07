@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { RouteOptimizationController } from './controllers/routeOptimizationController.js';
 import { Infrastructure } from './models/Infrastructure.js';
 import { Panchayat } from './models/Panchayat.js';
+import { PriorityEvidence } from './models/PriorityEvidence.js';
 import { PriorityConfig } from './models/PriorityConfig.js';
 
 const scopedPanchayatId = 'panchayat-a';
@@ -32,6 +33,10 @@ async function run() {
 
   const originalInfrastructureFind = infrastructureModel.find;
   const originalPanchayatFindById = panchayatModel.findById;
+  const evidenceModel = PriorityEvidence as unknown as {
+    find: (filter: Record<string, unknown>) => { lean: () => Promise<never[]> };
+  };
+  const originalEvidenceFind = evidenceModel.find;
   const originalPriorityFindOne = priorityConfigModel.findOne;
   const infrastructureFilters: Record<string, string>[] = [];
   let responseStatus = 200;
@@ -49,6 +54,7 @@ async function run() {
     panchayatModel.findById = (id) => ({
       select: () => ({ lean: async () => ({ name: `Selected ${id}`, centerCoord: { lat: 12.5, lng: 76.5 } }) })
     });
+    evidenceModel.find = () => ({ lean: async () => [] });
     priorityConfigModel.findOne = (filter) => 'panchayatId' in filter && typeof filter.panchayatId === 'string'
       ? Promise.resolve(null)
       : { sort: async () => null };
@@ -81,6 +87,7 @@ async function run() {
   } finally {
     infrastructureModel.find = originalInfrastructureFind;
     panchayatModel.findById = originalPanchayatFindById;
+    evidenceModel.find = originalEvidenceFind;
     priorityConfigModel.findOne = originalPriorityFindOne;
   }
 }

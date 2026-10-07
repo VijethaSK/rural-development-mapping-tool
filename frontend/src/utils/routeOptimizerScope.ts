@@ -107,12 +107,3 @@ export function isFiniteCoordinate(value: Coordinate | null | undefined): value 
   return Boolean(value) && Number.isFinite(value?.lat) && Number.isFinite(value?.lng) &&
     value!.lat >= -90 && value!.lat <= 90 && value!.lng >= -180 && value!.lng <= 180;
 }
-
-export function panchayatsVisibleToUser<T extends RoutePanchayatOption>(
-  panchayats: T[],
-  assignedPanchayatId?: string | null
-): T[] {
-  return assignedPanchayatId
-    ? panchayats.filter((panchayat) => String(panchayat._id) === String(assignedPanchayatId))
-    : panchayats;
-}

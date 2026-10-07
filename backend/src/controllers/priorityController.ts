@@ -2,12 +2,12 @@ import { Request, Response } from 'express';
 import { PriorityScoringService, PriorityLevel } from '../services/priorityScoringService.js';
 import { PriorityConfig } from '../models/PriorityConfig.js';
 import { Infrastructure } from '../models/Infrastructure.js';
-import { assertPanchayatAccess, panchayatFilter, resolvePanchayatScope } from '../middleware/panchayatScope.js';
+import { assertPanchayatReadAccess, panchayatFilter, panchayatReadFilter, resolvePanchayatScope } from '../middleware/panchayatScope.js';
 
 export async function getRanked(req: Request, res: Response): Promise<void> {
   try {
     const { type, ward, level, limit } = req.query;
-    const scope = panchayatFilter(req, req.query.panchayatId);
+    const scope = panchayatReadFilter(req, req.query.panchayatId);
 
     const data = await PriorityScoringService.getRanked({
       panchayatId: scope.panchayatId,
@@ -27,7 +27,7 @@ export async function getTop(req: Request, res: Response): Promise<void> {
   try {
     const limit = Number(req.query.limit) || 10;
     const { type, ward } = req.query;
-    const scope = panchayatFilter(req, req.query.panchayatId);
+    const scope = panchayatReadFilter(req, req.query.panchayatId);
 
     const data = await PriorityScoringService.getRanked({
       panchayatId: scope.panchayatId,
@@ -50,7 +50,7 @@ export async function getById(req: Request, res: Response): Promise<void> {
       res.status(404).json({ error: 'Infrastructure item not found' });
       return;
     }
-    assertPanchayatAccess(req, asset.panchayatId);
+    assertPanchayatReadAccess(req, asset.panchayatId);
 
     const result = await PriorityScoringService.getAssetPriorityResult(asset);
     if (result.scoringStatus === 'UNAVAILABLE') {
@@ -97,7 +97,7 @@ export async function getById(req: Request, res: Response): Promise<void> {
 
 export async function getConfig(req: Request, res: Response): Promise<void> {
   try {
-    const scope = panchayatFilter(req, req.query.panchayatId);
+    const scope = panchayatReadFilter(req, req.query.panchayatId);
     const config = await PriorityScoringService.getActiveConfig(scope.panchayatId);
     res.json(config);
   } catch (err: any) {

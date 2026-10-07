@@ -20,6 +20,40 @@ export function resolvePanchayatScope(req: Request, requested?: unknown): string
   return user.panchayatId;
 }
 
+/**
+ * Scope a public read or analysis operation to its requested Panchayat.
+ * Citizens may browse any Panchayat; PDO and admin behavior continues to use
+ * the existing assigned-Panchayat policy. Keep write/operational endpoints on
+ * resolvePanchayatScope so a citizen's account association remains enforced.
+ */
+export function resolvePanchayatReadScope(req: Request, requested?: unknown): string | undefined {
+  const requestedId = requested == null || requested === '' ? undefined : String(requested);
+  if (req.user?.role === 'citizen') return requestedId;
+  return resolvePanchayatScope(req, requestedId);
+}
+
+export function panchayatReadFilter(req: Request, requested?: unknown): Record<string, string> {
+  const panchayatId = resolvePanchayatReadScope(req, requested);
+  return panchayatId ? { panchayatId } : {};
+}
+
+export function assertPanchayatReadAccess(req: Request, panchayatId?: unknown): void {
+  const target = panchayatId == null ? undefined : String(panchayatId);
+  const allowed = resolvePanchayatReadScope(req, target);
+  if (target && allowed && target !== allowed) throw new PanchayatScopeError();
+  if (target && req.user && !allowed) throw new PanchayatScopeError();
+}
+
+export function denyIfPanchayatReadOutOfScope(req: Request, res: Response, panchayatId?: unknown): boolean {
+  try {
+    assertPanchayatReadAccess(req, panchayatId);
+    return false;
+  } catch (err: any) {
+    res.status(err.statusCode || 403).json({ error: err.message || 'Forbidden: Panchayat access denied' });
+    return true;
+  }
+}
+
 export function assertPanchayatAccess(req: Request, panchayatId?: unknown): void {
   const target = panchayatId == null ? undefined : String(panchayatId);
   const allowed = resolvePanchayatScope(req, target);

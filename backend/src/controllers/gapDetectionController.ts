@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { GapDetectionService } from '../services/spatial/gapDetectionService.js';
-import { resolvePanchayatScope } from '../middleware/panchayatScope.js';
+import { resolvePanchayatReadScope } from '../middleware/panchayatScope.js';
 
 export class GapDetectionController {
   /**
@@ -16,7 +16,7 @@ export class GapDetectionController {
         gridResolutionKm,
         computeNetworkDistance
       } = req.body;
-      const panchayatId = resolvePanchayatScope(req, requestedPanchayatId);
+      const panchayatId = resolvePanchayatReadScope(req, requestedPanchayatId);
       if (!panchayatId) {
         res.status(400).json({ error: 'Select a Panchayat before running gap analysis.' });
         return;
@@ -47,7 +47,7 @@ export class GapDetectionController {
   public static async getOverview(req: Request, res: Response): Promise<void> {
     try {
       const { schoolThreshold, roadThreshold } = req.query;
-      const panchayatId = resolvePanchayatScope(req, req.query.panchayatId);
+      const panchayatId = resolvePanchayatReadScope(req, req.query.panchayatId);
       if (!panchayatId) {
         res.status(400).json({ error: 'Select a Panchayat before requesting gap analysis.' });
         return;

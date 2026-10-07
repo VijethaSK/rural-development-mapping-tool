@@ -12,7 +12,6 @@ import { useAuth } from '../store/auth';
 import {
   candidateRequestPath,
   isFiniteCoordinate,
-  panchayatsVisibleToUser,
   resetRouteSelection,
   resolveRouteOrigin,
   routeMethodOverlayLabel,
@@ -62,10 +61,9 @@ export default function RouteOptimizationPage() {
   const [selectedPanchayatId, setSelectedPanchayatId] = useState<string>(initialPanchayatId);
   const selectedPanchayatIdRef = useRef(initialPanchayatId);
   const optimizationRequestVersionRef = useRef(0);
-  const visiblePanchayats = useMemo(
-    () => panchayatsVisibleToUser(panchayats, user?.panchayatId),
-    [panchayats, user?.panchayatId]
-  );
+  // The authenticated Panchayat endpoint already applies role-specific scope.
+  // Do not re-hide citizen options using their complaint/account Panchayat.
+  const visiblePanchayats = panchayats;
   const selectedPanchayat = panchayats.find((item) => String(item._id) === selectedPanchayatId);
 
   // State
