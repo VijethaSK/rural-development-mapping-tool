@@ -9,7 +9,7 @@ import {
   ComplaintState
 } from '../services/complaints/complaintStateMachine.js';
 import mongoose from 'mongoose';
-import { assertPanchayatAccess, panchayatFilter, resolvePanchayatScope } from '../middleware/panchayatScope.js';
+import { assertPanchayatAccess, panchayatFilter } from '../middleware/panchayatScope.js';
 
 /**
  * Standard complaint lifecycle steps for visual progress representation.
@@ -201,6 +201,7 @@ export async function createComplaint(req: Request, res: Response): Promise<void
       ward,
       village,
       infrastructureId,
+      panchayatId: submittedPanchayatId,
       location,
       images,
       reporterName,
@@ -217,14 +218,21 @@ export async function createComplaint(req: Request, res: Response): Promise<void
       return;
     }
 
-    // Default panchayat link if not provided
-    let panchayatId = resolvePanchayatScope(req, req.body.panchayatId);
-    if (!panchayatId) {
-      res.status(400).json({ error: 'Panchayat ID is required for a public complaint submission' });
+    // A complaint's target is explicitly selected for this submission. Do not
+    // substitute the citizen's account Panchayat; that account association is
+    // retained solely for identity and citizen statistics.
+    if (typeof submittedPanchayatId !== 'string' || !/^[a-f\d]{24}$/i.test(submittedPanchayatId) || !mongoose.Types.ObjectId.isValid(submittedPanchayatId)) {
+      res.status(400).json({ error: 'A valid Panchayat ID is required for complaint submission' });
       return;
     }
+    const panchayatId = submittedPanchayatId;
     if (!(await Panchayat.exists({ _id: panchayatId }))) {
       res.status(400).json({ error: 'Panchayat not found' });
+      return;
+    }
+
+    if (infrastructureId && (typeof infrastructureId !== 'string' || !mongoose.Types.ObjectId.isValid(infrastructureId))) {
+      res.status(400).json({ error: 'Invalid infrastructure ID' });
       return;
     }
 
@@ -306,9 +314,16 @@ export async function createComplaint(req: Request, res: Response): Promise<void
 
     // Increment infrastructure complaint tally
     if (infrastructureId) {
-      await Infrastructure.findByIdAndUpdate(infrastructureId, {
-        $inc: { complaintsCount: 1 }
-      });
+      await Infrastructure.updateOne(
+        { _id: infrastructureId, panchayatId },
+        [{
+          $set: {
+            complaintsCount: {
+              $add: [{ $ifNull: ['$complaintsCount', 0] }, 1]
+            }
+          }
+        }]
+      );
     }
 
     const created = await Complaint.findById(newComplaint._id)
