@@ -29,6 +29,7 @@ type ProvisioningAccount = {
   name: string;
   panchayatName?: string;
   passwordEnv: string;
+  permissions?: string[];
 };
 
 export const DEMO_ACCOUNTS: ProvisioningAccount[] = [
@@ -81,6 +82,60 @@ export const DEMO_ACCOUNTS: ProvisioningAccount[] = [
     // for the target Panchayat is "Varthur Gram Panchayat".
     panchayatName: 'Varthur Gram Panchayat',
     passwordEnv: 'RDMT_DEMO_PDO_VARTHUR_PASSWORD'
+  },
+  {
+    username: 'admin.adyar',
+    email: 'admin.adyar@rdmt.invalid',
+    role: 'admin',
+    name: 'Admin - Adyar',
+    panchayatName: 'Adyar',
+    passwordEnv: 'RDMT_DEMO_ADMIN_ADYAR_PASSWORD',
+    permissions: [...EXPECTED_EXISTING_ADMIN.permissions]
+  },
+  {
+    username: 'admin.harekala',
+    email: 'admin.harekala@rdmt.invalid',
+    role: 'admin',
+    name: 'Admin - Harekala',
+    panchayatName: 'Harekala',
+    passwordEnv: 'RDMT_DEMO_ADMIN_HAREKALA_PASSWORD',
+    permissions: [...EXPECTED_EXISTING_ADMIN.permissions]
+  },
+  {
+    username: 'admin.neermarga',
+    email: 'admin.neermarga@rdmt.invalid',
+    role: 'admin',
+    name: 'Admin - Neermarga',
+    panchayatName: 'Neermarga',
+    passwordEnv: 'RDMT_DEMO_ADMIN_NEERMARGA_PASSWORD',
+    permissions: [...EXPECTED_EXISTING_ADMIN.permissions]
+  },
+  {
+    username: 'admin.pavuru',
+    email: 'admin.pavuru@rdmt.invalid',
+    role: 'admin',
+    name: 'Admin - Pavuru',
+    panchayatName: 'Pavuru',
+    passwordEnv: 'RDMT_DEMO_ADMIN_PAVURU_PASSWORD',
+    permissions: [...EXPECTED_EXISTING_ADMIN.permissions]
+  },
+  {
+    username: 'admin.pudu',
+    email: 'admin.pudu@rdmt.invalid',
+    role: 'admin',
+    name: 'Admin - Pudu',
+    panchayatName: 'Pudu',
+    passwordEnv: 'RDMT_DEMO_ADMIN_PUDU_PASSWORD',
+    permissions: [...EXPECTED_EXISTING_ADMIN.permissions]
+  },
+  {
+    username: 'admin.varthur',
+    email: 'admin.varthur@rdmt.invalid',
+    role: 'admin',
+    name: 'Admin - Varthur Gram Panchayat',
+    panchayatName: 'Varthur Gram Panchayat',
+    passwordEnv: 'RDMT_DEMO_ADMIN_VARTHUR_PASSWORD',
+    permissions: [...EXPECTED_EXISTING_ADMIN.permissions]
   }
 ];
 
@@ -118,6 +173,44 @@ export type ProvisioningTarget = {
   database: string;
   isLocal: boolean;
 };
+
+const SAFE_PROVISIONING_MESSAGES = new Set([
+  'Account creation did not complete; inspect the created-user list before retrying.',
+  'The expected existing admin or canonical Varthur Panchayat was not uniquely found; no PDO accounts were provisioned.',
+  'The existing admin account did not match the expected AdminUser identity; no PDO accounts were provisioned.',
+  'Connected database was not rdmt; no accounts were provisioned.'
+]);
+
+function safeDiagnosticToken(value: unknown): string | undefined {
+  if (typeof value !== 'string' && typeof value !== 'number') return undefined;
+  const token = String(value);
+  return token.length > 0 && token.length <= 80 && /^[A-Za-z0-9_.-]+$/.test(token)
+    ? token
+    : undefined;
+}
+
+/** Format error classification without exposing stacks, URIs, or credentials. */
+export function formatProvisioningFailureDiagnostics(error: {
+  name?: unknown;
+  code?: unknown;
+  codeName?: unknown;
+  message?: unknown;
+} | null | undefined): string[] {
+  const name = safeDiagnosticToken(error?.name) || '(unavailable)';
+  const code = safeDiagnosticToken(error?.code);
+  const databaseErrorName = safeDiagnosticToken(error?.codeName) || safeDiagnosticToken(error?.name);
+  const message = typeof error?.message === 'string' && SAFE_PROVISIONING_MESSAGES.has(error.message)
+    ? error.message
+    : '(suppressed)';
+
+  return [
+    'Provisioning failed.',
+    `Error name: ${name}`,
+    ...(code ? [`Database/model error code: ${code}`] : []),
+    ...(databaseErrorName ? [`Database/model error name: ${databaseErrorName}`] : []),
+    `Safe message: ${message}`
+  ];
+}
 
 /** Validates the configured target without ever including the URI in errors. */
 export function validateProvisioningTarget(
@@ -179,13 +272,32 @@ export type PlannedAccount = ProvisioningAccount & {
   password: string;
 };
 
+export type ProvisioningPlan = {
+  pdoAccountsToCreate: PlannedAccount[];
+  adminAccountsToCreate: PlannedAccount[];
+  existingPdoAccounts: string[];
+  existingAdminAccounts: string[];
+};
+
 /** Pure preflight planner; no database writes occur until this returns. */
 export function buildProvisioningPlan(input: {
   panchayats: Array<{ _id: unknown; name: string }>;
-  existingUsers: Array<{ username?: string; email?: string }>;
+  existingUsers: Array<{
+    _id?: unknown;
+    username?: string;
+    email?: string;
+    role?: string;
+    panchayatId?: unknown;
+    isDemoAccount?: boolean;
+    isActive?: boolean;
+    permissions?: string[];
+  }>;
   environment: ProvisioningEnvironment;
-}): PlannedAccount[] {
+}): ProvisioningPlan {
   const errors: string[] = [];
+  const missingAccounts: ProvisioningAccount[] = [];
+  const existingPdoAccounts: string[] = [];
+  const existingAdminAccounts: string[] = [];
   const panchayatByName = new Map<string, Array<{ _id: unknown; name: string }>>();
   for (const panchayat of input.panchayats) {
     const entries = panchayatByName.get(panchayat.name) || [];
@@ -193,21 +305,61 @@ export function buildProvisioningPlan(input: {
     panchayatByName.set(panchayat.name, entries);
   }
 
-  for (const account of DEMO_ACCOUNTS.filter((item) => item.panchayatName)) {
-    const count = panchayatByName.get(account.panchayatName!)?.length || 0;
-    if (count !== 1) errors.push(`Panchayat '${account.panchayatName}' matched ${count} records; exactly one is required.`);
-  }
-
-  const requestedUsernames = new Set(DEMO_ACCOUNTS.map((item) => item.username.toLowerCase()));
-  const requestedEmails = new Set(DEMO_ACCOUNTS.map((item) => item.email.toLowerCase()));
-  for (const existing of input.existingUsers) {
-    const username = existing.username?.toLowerCase();
-    const email = existing.email?.toLowerCase();
-    if (username && requestedUsernames.has(username)) errors.push(`Username '${existing.username}' already exists.`);
-    if (email && requestedEmails.has(email)) errors.push(`Email '${existing.email}' already exists.`);
+  const requiredPanchayatNames = new Set(
+    DEMO_ACCOUNTS.flatMap((account) => account.panchayatName ? [account.panchayatName] : [])
+  );
+  for (const name of requiredPanchayatNames) {
+    const count = panchayatByName.get(name)?.length || 0;
+    if (count !== 1) errors.push(`Panchayat '${name}' matched ${count} records; exactly one is required.`);
   }
 
   for (const account of DEMO_ACCOUNTS) {
+    const usernameMatches = input.existingUsers.filter(
+      (existing) => existing.username?.toLowerCase() === account.username.toLowerCase()
+    );
+    const emailMatches = input.existingUsers.filter(
+      (existing) => existing.email?.toLowerCase() === account.email.toLowerCase()
+    );
+
+    if (!usernameMatches.length && !emailMatches.length) {
+      missingAccounts.push(account);
+      continue;
+    }
+
+    const sameExistingUser = usernameMatches.length === 1 && emailMatches.length === 1 && (
+      usernameMatches[0] === emailMatches[0] ||
+      (usernameMatches[0]._id != null && emailMatches[0]._id != null &&
+        String(usernameMatches[0]._id) === String(emailMatches[0]._id))
+    );
+    if (!sameExistingUser || usernameMatches[0].role !== account.role) {
+      if (usernameMatches.length || emailMatches.length) {
+        if (usernameMatches.length) errors.push(`Username '${account.username}' conflicts with an unexpected existing account identity.`);
+        if (emailMatches.length) errors.push(`Email '${account.email}' conflicts with an unexpected existing account identity.`);
+      }
+      continue;
+    }
+
+    if (account.role === 'pdo') {
+      existingPdoAccounts.push(account.username);
+    } else {
+      const expectedPanchayatId = panchayatByName.get(account.panchayatName!)?.[0]._id;
+      const actualPermissions = [...(usernameMatches[0].permissions || [])].sort();
+      const expectedPermissions = [...(account.permissions || EXPECTED_EXISTING_ADMIN.permissions)].sort();
+      const adminIdentityMatches =
+        String(usernameMatches[0].panchayatId || '') === String(expectedPanchayatId || '') &&
+        usernameMatches[0].isDemoAccount === true &&
+        usernameMatches[0].isActive === true &&
+        actualPermissions.length === expectedPermissions.length &&
+        actualPermissions.every((permission, index) => permission === expectedPermissions[index]);
+      if (!adminIdentityMatches) {
+        errors.push(`Scoped Admin '${account.username}' does not match its expected Panchayat, active/demo flags, and permissions.`);
+        continue;
+      }
+      existingAdminAccounts.push(account.username);
+    }
+  }
+
+  for (const account of missingAccounts) {
     if (!input.environment[account.passwordEnv]) {
       errors.push(`Required password environment variable '${account.passwordEnv}' is missing.`);
     }
@@ -215,13 +367,39 @@ export function buildProvisioningPlan(input: {
 
   if (errors.length) throw new Error(`Provisioning preflight failed:\n- ${errors.join('\n- ')}`);
 
-  return DEMO_ACCOUNTS.map((account) => ({
-    ...account,
-    ...(account.panchayatName
-      ? { panchayatId: panchayatByName.get(account.panchayatName)![0]._id }
-      : {}),
-    password: input.environment[account.passwordEnv]!
-  }));
+  const accountsToCreate = missingAccounts.map((account) => ({
+      ...account,
+      ...(account.panchayatName
+        ? { panchayatId: panchayatByName.get(account.panchayatName)![0]._id }
+        : {}),
+      password: input.environment[account.passwordEnv]!
+    }));
+  return {
+    pdoAccountsToCreate: accountsToCreate.filter((account) => account.role === 'pdo'),
+    adminAccountsToCreate: accountsToCreate.filter((account) => account.role === 'admin'),
+    existingPdoAccounts,
+    existingAdminAccounts
+  };
+}
+
+/** Build the role-specific model payload while keeping plaintext passwords out of it. */
+export function buildAccountCreateDocument(account: PlannedAccount, passwordHash: string) {
+  const data = {
+    name: account.name,
+    username: account.username,
+    email: account.email,
+    passwordHash,
+    role: account.role,
+    isActive: true,
+    isDemoAccount: true,
+    ...(account.panchayatId
+      ? { panchayatId: new mongoose.Types.ObjectId(String(account.panchayatId)) }
+      : {})
+  };
+
+  return account.role === 'admin'
+    ? { ...data, role: 'admin' as const, permissions: account.permissions || [...EXPECTED_EXISTING_ADMIN.permissions] }
+    : { ...data, role: 'pdo' as const, designation: 'PDO' as const };
 }
 
 async function main(args: string[]): Promise<void> {
@@ -245,7 +423,7 @@ async function main(args: string[]): Promise<void> {
         ...usernameExpressions.map((username) => ({ username })),
         ...emailExpressions.map((email) => ({ email }))
       ]
-    }).select('username email').lean();
+    }).select('username email role panchayatId isDemoAccount isActive permissions').lean();
 
     const varthur = panchayats.filter((panchayat) => panchayat.name === EXPECTED_EXISTING_ADMIN.panchayatName);
     const existingAdminCandidates = await User.find({ username: /^admin$/i })
@@ -260,39 +438,40 @@ async function main(args: string[]): Promise<void> {
     }
     assertKnownExistingAdmin(existingAdmin, varthur[0]._id, isAdminUserDiscriminator);
 
-    // This function validates every target Panchayat, PDO username/email, and
-    // required password before the first account write.
+    // This function validates every target Panchayat, classifies each requested
+    // identity, and checks passwords for all accounts that must be created.
     const plan = buildProvisioningPlan({ panchayats, existingUsers, environment: process.env });
-    console.log('Preflight passed: existing admin identity verified; six Panchayats matched exactly once; all six PDO usernames/emails are unused.');
-    const prepared = await Promise.all(plan.map(async (account) => ({
+    const describe = (accounts: string[]) => accounts.join(', ') || '(none)';
+    console.log(`Existing PDO accounts preserved: ${describe(plan.existingPdoAccounts)}.`);
+    console.log(`Existing scoped Admin accounts preserved: ${describe(plan.existingAdminAccounts)}.`);
+    const accountsToCreate = [...plan.pdoAccountsToCreate, ...plan.adminAccountsToCreate];
+    console.log(`Preflight passed: existing system-wide admin identity verified; six Panchayats matched exactly once; ${accountsToCreate.length} missing account(s) are ready to create.`);
+    const prepared = await Promise.all(accountsToCreate.map(async (account) => ({
       account,
       passwordHash: await bcrypt.hash(account.password, PASSWORD_COST)
     })));
 
-    const createdUsernames: string[] = [];
+    const createdPdoUsernames: string[] = [];
+    const createdAdminUsernames: string[] = [];
     try {
       for (const { account, passwordHash } of prepared) {
-        const data = {
-          name: account.name,
-          username: account.username,
-          email: account.email,
-          passwordHash,
-          role: account.role,
-          isActive: true,
-          isDemoAccount: true,
-          ...(account.panchayatId ? { panchayatId: new mongoose.Types.ObjectId(String(account.panchayatId)) } : {})
-        };
-
-        await PdoUser.create({ ...data, designation: 'PDO' });
-        createdUsernames.push(account.username);
+        if (account.role === 'admin') {
+          await AdminUser.create(buildAccountCreateDocument(account, passwordHash));
+          createdAdminUsernames.push(account.username);
+        } else {
+          await PdoUser.create(buildAccountCreateDocument(account, passwordHash));
+          createdPdoUsernames.push(account.username);
+        }
       }
     } catch (error: any) {
-      console.error(`Provisioning stopped after creating ${createdUsernames.length} account(s). No existing account was updated. Created usernames: ${createdUsernames.join(', ') || '(none)'}.`);
-      console.error(`Database/model error code: ${error?.code || error?.name || 'unknown'}. No password or URI was logged.`);
+      console.error(`Provisioning stopped after creating PDO account(s): ${describe(createdPdoUsernames)}; scoped Admin account(s): ${describe(createdAdminUsernames)}. Existing accounts were not modified.`);
+      console.error(`Database/model error code: ${safeDiagnosticToken(error?.code) || 'unknown'}.`);
+      console.error(`Database/model error name: ${safeDiagnosticToken(error?.codeName) || safeDiagnosticToken(error?.name) || 'unknown'}.`);
       throw new Error('Account creation did not complete; inspect the created-user list before retrying.');
     }
 
-    console.log(`Created ${createdUsernames.length} demo account(s): ${createdUsernames.join(', ')}.`);
+    console.log(`Newly created PDO accounts: ${describe(createdPdoUsernames)}.`);
+    console.log(`Newly created scoped Admin accounts: ${describe(createdAdminUsernames)}.`);
     console.log('Passwords were hashed with bcrypt cost 10. Plaintext passwords were not logged.');
   } finally {
     await mongoose.disconnect();
@@ -303,17 +482,7 @@ const invokedAsScript = process.argv[1] &&
   pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
 if (invokedAsScript) {
   void main(process.argv.slice(2)).catch((error) => {
-    // Only known preflight messages are safe to print; raw database errors may
-    // contain connection information, so they are intentionally suppressed.
-    if (String(error?.message || '').startsWith('Provisioning preflight failed:') ||
-        String(error?.message || '').startsWith('Refusing') ||
-        String(error?.message || '').startsWith('The configured') ||
-        String(error?.message || '').startsWith('Provisioning requires') ||
-        String(error?.message || '').startsWith('Demo-account')) {
-      console.error(error.message);
-    } else {
-      console.error('Provisioning failed. Database details and credentials were not logged.');
-    }
+    for (const line of formatProvisioningFailureDiagnostics(error)) console.error(line);
     process.exitCode = 1;
   });
 }
