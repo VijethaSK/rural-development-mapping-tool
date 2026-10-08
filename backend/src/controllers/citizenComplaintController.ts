@@ -51,8 +51,8 @@ export async function listComplaints(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const filter: any = myComplaints === 'true' && req.user?.role === 'citizen'
-      ? (panchayatId ? { panchayatId: String(panchayatId) } : {})
+    const filter: any = myComplaints === 'true'
+      ? {}
       : { ...panchayatFilter(req, panchayatId) };
 
     // Citizen personal filter
