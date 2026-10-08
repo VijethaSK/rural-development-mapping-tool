@@ -10,6 +10,8 @@
     "import:source:dry-run": "node --loader ts-node/esm src/scripts/import-source-excel.mjs --dry-run",
     "import:source:apply": "node --loader ts-node/esm src/scripts/import-source-excel.mjs --apply",
     "test:source-importer": "node --test src/scripts/import-source-excel.test.mjs",
+    "provision:demo-accounts": "node --loader ts-node/esm src/seed/provisionDemoAccounts.ts",
+    "test:provision:demo-accounts": "node --loader ts-node/esm src/test-provision-demo-accounts.ts",
     "typecheck": "tsc --noEmit",
     "seed": "ts-node-dev --transpile-only --esm src/seed/seed-run.ts",
     "test:models": "node --loader ts-node/esm src/test-models.ts",
