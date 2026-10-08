@@ -42,7 +42,18 @@ export async function listComplaints(req: Request, res: Response): Promise<void>
       skip = '0'
     } = req.query;
 
-    const filter: any = { ...panchayatFilter(req, panchayatId) };
+    if (myComplaints === 'true' && !req.user?.id) {
+      res.status(401).json({ error: 'Authentication required to view your complaints' });
+      return;
+    }
+    if (myComplaints === 'true' && req.user?.role !== 'citizen') {
+      res.status(403).json({ error: 'Only citizens can view their submitted complaints' });
+      return;
+    }
+
+    const filter: any = myComplaints === 'true' && req.user?.role === 'citizen'
+      ? (panchayatId ? { panchayatId: String(panchayatId) } : {})
+      : { ...panchayatFilter(req, panchayatId) };
 
     // Citizen personal filter
     const userId = (req as any).user?.id;
